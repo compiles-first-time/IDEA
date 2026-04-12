@@ -1,0 +1,36 @@
+# Cross-verification report — regenerated on every run of _xverify_phase_a.py
+validation/_xverify_phase_a_report.txt
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment / editor / OS
+.venv/
+venv/
+env/
+.env
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build artifacts (Phase 4 will add language-specific entries)
+target/
+dist/
+build-out/
+node_modules/
+
+# Test artifacts
+coverage/
+.pytest_cache/
+*.coverage
+*.lcov
+
+# Temporary files
+*.swp
+*.swo
+*~
+.tmp/

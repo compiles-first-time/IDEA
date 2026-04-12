@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Read",
+      "Write",
+      "Edit",
+      "Bash",
+      "Grep",
+      "Glob",
+      "WebFetch",
+      "WebSearch",
+      "TodoWrite",
+      "NotebookEdit",
+      "Agent",
+      "Skill"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[MANDATORY] Run the context-loader agent (.claude/agents/context-loader.md) BEFORE any work. It reads CLAUDE.md, HANDOFF.md, STATE.md, LOG.md, NEXT.md, PROGRESS.md, CONVENTIONS.md, GLOSSARY.md, DECISION-INDEX.md, and relevant spec/ files. Do NOT proceed without its state report and Nick confirmation.'"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "clear|logout|prompt_input_exit|other",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[MANDATORY] Run the update-state-log skill (.claude/skills/update-state-log.md). Update STATE.md, LOG.md, NEXT.md, PROGRESS.md. Ask Nick: Before we close, is there anything about your thinking I should capture?'"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/protect-readonly.py",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/check-sr-reference.py",
+            "timeout": 5000
+          }
+        ]
+      }
+    ]
+  },
+  "disableAllHooks": false
+}
