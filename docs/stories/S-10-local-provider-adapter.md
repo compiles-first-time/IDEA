@@ -1,6 +1,6 @@
 # S-10 — Local provider adapter
 
-**Phase:** 2 · **Workstream:** 3 Provider adapters · **Status:** 🔓 Unblocked by [08-local-first](../architecture/08-local-first.md) — no companion hop
+**Phase:** 2 · **Workstream:** 3 Provider adapters · **Status:** ✅ **Done** (2026-07-27)
 **Component:** C-15 · **Traces to:** FR-6.1, AD-2, NFR-3, E-6.a
 **Depends on:** S-04 · **Blocks:** nothing
 

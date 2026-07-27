@@ -1,6 +1,6 @@
 # S-17 — Local control API (proxy)
 
-**Phase:** 2 · **Workstream:** 5 Local models · **Status:** 🔓 Unblocked by [08-local-first](../architecture/08-local-first.md) — no companion hop
+**Phase:** 2 · **Workstream:** 5 Local models · **Status:** ✅ **Done** (2026-07-27)
 **Component:** C-19 · **Traces to:** FR-6.1, FR-6.2, FR-6.3, FR-6.4, E-6.a, NFR-2
 **Depends on:** S-15, S-16 · **Blocks:** nothing (completes the local-models workstream)
 

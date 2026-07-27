@@ -1,6 +1,6 @@
 # S-06 — Model picker UI
 
-**Phase:** 2 · **Workstream:** 1 Registry & picker · **Status:** Not started
+**Phase:** 2 · **Workstream:** 1 Registry & picker · **Status:** ✅ **Done** (2026-07-27)
 **Component:** C-9 (extend `components/chat-workspace.tsx`) · **Traces to:** FR-4.1, FR-4.4
 **Depends on:** S-05 · **Blocks:** nothing (S-09 makes it functional end-to-end)
 

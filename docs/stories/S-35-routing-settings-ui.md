@@ -1,6 +1,6 @@
 # S-35 — Routing & budget settings UI
 
-**Phase:** 2 · **Workstream:** 2 Router · **Status:** Not started
+**Phase:** 2 · **Workstream:** 2 Router · **Status:** ✅ **Done** (2026-07-27)
 **Component:** C-36 · **Traces to:** FR-4.6, FR-4.9, FR-4.11, E-4.b
 **Depends on:** S-33, S-34 · **Blocks:** nothing
 

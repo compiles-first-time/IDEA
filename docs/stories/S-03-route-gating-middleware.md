@@ -1,6 +1,6 @@
 # S-03 — Route-gating middleware
 
-**Phase:** 1 hardening · **Workstream:** Foundation · **Status:** Not started
+**Phase:** 1 hardening · **Workstream:** Foundation · **Status:** ✅ **Done** (2026-07-27)
 **Component:** C-3 · **Traces to:** FR-1.2, FR-1.3, NFR-4, §6 security model
 **Depends on:** nothing · **Blocks:** nothing (independent)
 

@@ -22,7 +22,7 @@ to one, it's scope creep — write a new story or an exception first.
 | [S-01](S-01-architecture-package-in-repo.md) | Land the architecture package in the repo | — | ✅ **Done** |
 | [S-02](S-02-test-harness.md) | Test harness for deterministic libs | — (NFR-1) | ✅ **Done** |
 | [S-36](S-36-cli-launcher.md) | **CLI launcher** (`npx idea`) | C-37 | ✅ **Done** |
-| [S-03](S-03-route-gating-middleware.md) | Route-gating middleware | C-3 | Not started |
+| [S-03](S-03-route-gating-middleware.md) | Route-gating middleware | C-3 | ✅ **Done** |
 | [S-16](S-16-local-helper-contract.md) | ~~Local companion contract~~ | C-24 | ❌ **Won't do** — superseded by `08` |
 
 ## Workstream 1 — Model registry & manual picker
@@ -31,7 +31,7 @@ to one, it's scope creep — write a new story or an exception first.
 |---|---|---|---|
 | [S-04](S-04-model-registry.md) | Model registry | C-11 | ✅ **Done** |
 | [S-05](S-05-models-api.md) | Models API | C-14 | ✅ **Done** |
-| [S-06](S-06-model-picker-ui.md) | Model picker UI | C-9 | Not started |
+| [S-06](S-06-model-picker-ui.md) | Model picker UI | C-9 | ✅ **Done** |
 
 ## Workstream 2 — Deterministic router
 
@@ -42,13 +42,13 @@ to one, it's scope creep — write a new story or an exception first.
 | [S-33](S-33-fallback-chain.md) | User-ordered fallback chain | C-34 | ✅ **Done** |
 | [S-34](S-34-spend-ledger-and-allocation.md) | Spend ledger & financial allocation | C-35 | ✅ **Done** |
 | [S-09](S-09-chat-route-routing.md) | Chat route: mode, model, RoutingDecision, fallback | C-8 | ✅ **Done** |
-| [S-35](S-35-routing-settings-ui.md) | Routing & budget settings UI | C-36 | Not started |
+| [S-35](S-35-routing-settings-ui.md) | Routing & budget settings UI | C-36 | ✅ **Done** |
 
 ## Workstream 3 — Provider adapters
 
 | ID | Story | Component | Status |
 |---|---|---|---|
-| [S-10](S-10-local-provider-adapter.md) | Local provider adapter | C-15 | Not started |
+| [S-10](S-10-local-provider-adapter.md) | Local provider adapter | C-15 | ✅ **Done** |
 
 ## Workstream 4 — Portable skills & agents
 
@@ -64,15 +64,15 @@ to one, it's scope creep — write a new story or an exception first.
 | ID | Story | Component | Status |
 |---|---|---|---|
 | [S-15](S-15-fit-recommender.md) | Fit recommender | C-20 | ✅ **Done** |
-| [S-17](S-17-local-control-api.md) | Local control API (proxy) | C-19 | Not started |
+| [S-17](S-17-local-control-api.md) | Local control API (proxy) | C-19 | ✅ **Done** |
 
 ## Workstream 6 — Loom cost seeding
 
 | ID | Story | Component | Status |
 |---|---|---|---|
-| [S-22](S-22-loom-vendor-and-cost-seed.md) | Seed cost rates from Loom's config | 06-loom | Not started — *narrowed* |
+| [S-22](S-22-loom-vendor-and-cost-seed.md) | Seed cost rates from Loom's config | 06-loom | ✅ **Done** |
 | [S-18](S-18-project-registry.md) | Project registry | C-21 | ✅ **Done** |
-| [S-19](S-19-projects-process-api.md) | Projects API: start / stop / status | C-22 | Not started — *narrowed to a proxy* |
+| [S-19](S-19-projects-process-api.md) | Projects API: start / stop / status | C-22 | **Won't do** — folded into S-29 |
 | [S-20](S-20-dashboard-proxy.md) | Dashboard same-origin proxy | C-22 | **Won't do** (recommended) |
 | [S-21](S-21-project-pane-ui.md) | Project pane UI | C-23 | **Won't do** — folded into S-31 |
 
@@ -86,7 +86,7 @@ to one, it's scope creep — write a new story or an exception first.
 | [S-26](S-26-secret-redaction.md) | Secret redaction before persistence | C-28 | ✅ **Done** — gates S-27 |
 | [S-27](S-27-conversation-store.md) | Conversation store (GitHub API) | C-27 | ✅ **Done** |
 | [S-28](S-28-compaction-and-fidelity.md) | Compaction & fidelity reporting | C-29 | ✅ **Done** |
-| [S-32](S-32-conversation-resume-ui.md) | Conversation resume UI | C-32 | Not started |
+| [S-32](S-32-conversation-resume-ui.md) | Conversation resume UI | C-32 | ✅ **Done** |
 
 ## Workstream 8 — Provisioning *(new)*
 
@@ -105,23 +105,20 @@ The capability split is gone. IDEA runs on the user's machine, so there is no
 and localhost. That removal is the point of
 [`08-local-first.md`](../architecture/08-local-first.md).
 
-## What remains
+## Phase 2 is complete
 
-**Conversations** — S-27 (store) is the last piece of persistence. Both of its hard
-prerequisites (S-25 pinning, S-26 redaction) are done. Then S-32 (resume UI).
+**32 done · 4 deliberately closed · 0 outstanding.**
 
-**Projects & provisioning** — S-18 (registry) → S-29 (provision in-process) →
-S-30 (create from template) → S-31 (projects page). S-19 folds into S-29.
+The four closed ones are recorded rather than deleted, because the reasoning matters:
 
-**Skills** — S-11 (manifest) → S-12 (tool allowlist) → S-13 (agent loop) → S-14 (API).
+| Story | Why |
+|---|---|
+| S-16 Local companion | Superseded by `08` — the companion existed only to work around Vercel |
+| S-19 Projects start/stop | Folded into S-29; a route no longer needs to proxy to anything |
+| S-20 Dashboard proxy | Not built on purpose — SSRF surface for a nicer-looking iframe |
+| S-21 Project pane | Folded into S-31, which covers it plus provisioning |
 
-**Local models** — S-10 (adapter) → S-17 (control API). Both now trivial: no proxy hop.
-
-**UI** — S-06 (model picker), S-35 (routing & budget settings).
-
-**Loose ends** — S-03 (middleware audit), S-22 (Loom cost seeding).
-
-### Two ordering constraints that are not negotiable
+### Ordering constraints that were not negotiable — and were honored
 
 1. **S-25 before S-27.** Persisting unpinned repo context makes every conversation
    written in the meantime permanently unreproducible. There is no backfill for a SHA

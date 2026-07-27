@@ -8,7 +8,7 @@
 > [S-30](S-30-project-creation-from-template.md). Keep the local `loom-template` checkout
 > as the rate source; you do not need to vendor it under `projects/` to read a YAML file.
 
-**Phase:** 2 · **Workstream:** 6 Projects & Loom · **Status:** Not started
+**Phase:** 2 · **Workstream:** 6 Projects & Loom · **Status:** ✅ **Done** (2026-07-27)
 **Component:** `06-loom-integration.md` · **Traces to:** FR-4.5, FR-7.2, FR-7.3, E-7.b, AD-5
 **Depends on:** S-18 · **Blocks:** re-seeds S-04's `costWeight` (do before tuning S-08)
 

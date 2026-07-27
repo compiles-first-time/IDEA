@@ -1,6 +1,6 @@
 # S-32 — Conversation resume UI
 
-**Phase:** 2 · **Workstream:** 7 Conversations · **Status:** Not started
+**Phase:** 2 · **Workstream:** 7 Conversations · **Status:** ✅ **Done** (2026-07-27)
 **Component:** C-32 · **Traces to:** FR-9.1, FR-9.5, FR-9.6, E-9.b, E-9.d
 **Depends on:** S-24, S-27, S-28 · **Blocks:** nothing
 
