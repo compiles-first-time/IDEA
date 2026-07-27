@@ -147,3 +147,16 @@ The four closed ones are recorded rather than deleted, because the reasoning mat
 
 Skill marketplace, multi-project orchestration, budget analytics dashboards, IDEA
 emitting telemetry back to the Observatory. *(Chat persistence graduated into Phase 2.)*
+
+### S-38 — Requirements-gathering agent *(next up, not started)*
+
+An agent plus skills that interview the user and turn the answers into a project
+brief. Everything it needs already exists: the agent loop (S-13), the skill
+manifest parser (S-11), the tool allowlist (S-12), and conversations that persist
+into the project's own repo (S-27). The work is the skills and the interview
+itself, not new plumbing.
+
+Two things to settle before building it: where the brief lands (a file in the new
+project's repo is the obvious answer, since that is where the conversation already
+lives), and whether it runs before provisioning — a brief that shapes what gets
+scaffolded is worth more than one written afterwards.
