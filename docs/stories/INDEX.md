@@ -84,7 +84,7 @@ to one, it's scope creep — write a new story or an exception first.
 | [S-24](S-24-provider-render-adapters.md) | Provider render adapters & conformance | C-26 | ✅ **Done** |
 | [S-25](S-25-repo-context-sha-pinning.md) | Repo context SHA pinning | C-7/C-8 | ✅ **Done** |
 | [S-26](S-26-secret-redaction.md) | Secret redaction before persistence | C-28 | ✅ **Done** — gates S-27 |
-| [S-27](S-27-conversation-store.md) | Conversation store (GitHub API) | C-27 | Not started |
+| [S-27](S-27-conversation-store.md) | Conversation store (GitHub API) | C-27 | ✅ **Done** |
 | [S-28](S-28-compaction-and-fidelity.md) | Compaction & fidelity reporting | C-29 | ✅ **Done** |
 | [S-32](S-32-conversation-resume-ui.md) | Conversation resume UI | C-32 | Not started |
 
