@@ -108,22 +108,67 @@ it is *not* a statement of distrust: it is Rule 20 applied evenly. An agent that
 be tricked into an irreversible mistake can be trusted with far broader latitude
 everywhere else. **The gate is what makes the freedom safe to grant.**
 
-## 5. ⚠️ Blocker: the kernel is a placeholder
+## 5. The kernel is installed ✅
 
-`loom-template/constitution/kernel-v6.md` reads:
+`loom-template/constitution/kernel-v6.md` held a placeholder until 2026-07-27. The
+canonical Trajectory Kernel V6 is now installed verbatim — all 23 rules across 10 layers
+— with the placeholder preserved at `constitution/history/0000-kernel-placeholder.md`.
 
-> *"Status: PLACEHOLDER — drop the canonical Kernel V6 text in this file. The full text
-> of Trajectory Kernel V6 lives in your personal authoritative copy."*
+Reading the **full** text rather than the seven-rule summary changed three things here.
 
-Seven rules are summarized. Sixteen are listed as *"they apply but must be read in the
-full text before any agent claims compliance with the full kernel."*
+### Rule 22 is far stronger than the summary implied
 
-**This design leans on the kernel as its primary behavioral layer, and the kernel is not
-installed.** Until the canonical text replaces that file, agents are operating on a
-seven-rule summary, and no agent can honestly claim kernel compliance.
+It requires records be *"verbose, explicit, and structurally accurate,"* capturing five
+specific things: information accessed, sources **and assigned trust level**, reasoning,
+**alternatives considered and why rejected**, and **confidence level**.
 
-The file documents the fix in four steps. It is a copy-paste, and it is the highest-value
-outstanding item in the whole system.
+The original implementation emitted `{tool, category, enforcement, matched, decision}` —
+item (iii) only. `lib/permissions.ts` now emits a `KernelTrace` whose shape *is* the five
+requirements. Confidence is reported honestly: a matched pattern is positive evidence
+(`high`), while an `auto` classification rests on the *absence* of a match, which is
+weaker (`medium`) — the pattern list is curated and will miss novel forms, exactly as
+LR-02 and LR-04 say of their own heuristics.
+
+### Rule 15 gives prompt-injection defense a principled shape
+
+> *"An agent's affirmative duty to verify the truth of information they're acting on
+> grows in proportion to the magnitude of the action's possible consequences."*
+
+Implemented as `verificationDuty()`: `face_value` → `corroborated` → `near_absolute`. An
+untrusted source informing an irreversible action is **named explicitly** in the
+confirmation shown to the human, so they can see what steered the agent.
+
+### Rules 13/14 supply the theory the gate was missing
+
+A repo file that steers an agent into harm is a **tier-5 fabricating supplier**. Under
+Rule 14 the agent is an *instrument*, not an author — provided it was tier 1/2 itself and
+could not reasonably have caught the deception.
+
+This is the "what is good for agents is good for humans" claim made precise: **the
+injected agent is a victim of the attack, not its perpetrator.** The gate is not a leash
+on a suspect actor; it is what prevents an agent from being *made into* an instrument
+against its own principal. Rule 2's fundamental wrong — unconsented narrowing of a
+possibility space — is committed by the injector, against both of them.
+
+### Known gap: Rule 22's third-party transparency layer
+
+Rule 22 requires artificial agents write to an *"immutable, redundant, third-party
+transparency layer that the agent itself does not control."*
+
+IDEA writes traces from the same process that produces them. Append-only JSONL committed
+to git is a partial answer — history is tamper-evident — but it is **not third-party and
+not outside the agent's control**. This is the kernel's own **structural gap #3, the
+bootstrap problem**: *"the kernel assumes a transparency layer exists and is trusted.
+Building such a layer in a world that doesn't have one is itself a governance problem the
+kernel doesn't address."*
+
+Not solvable inside IDEA alone. Recorded rather than papered over.
+
+### A note on Rule 8, applied to me
+
+The blanket E-5.a prohibition this document supersedes was an instance of exactly what
+Rule 8 forbids: deciding on another agent's behalf what its flourishing should look like.
+The correction came from the principal, which is how Rule 8 is supposed to work.
 
 ## 6. Component impact
 

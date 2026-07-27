@@ -2,7 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
 
-import { ENFORCEMENT, checkPath, classify, gate, type ScopeContext } from "@/lib/permissions";
+import {
+  ENFORCEMENT,
+  checkPath,
+  classify,
+  gate,
+  verificationDuty,
+  type ScopeContext,
+} from "@/lib/permissions";
 
 const SCOPE: ScopeContext = {
   projectRoot: resolve("/work/projects/my-app"),
@@ -233,4 +240,106 @@ test("gate never throws on hostile input", () => {
   assert.doesNotThrow(() =>
     gate({ call: { tool: "" }, paths: ["", "..", " "], scope: SCOPE, humanPresent: false }),
   );
+});
+
+/* -------------------------------------------------------------------------- */
+/* Kernel Rule 22 — the trace record                                          */
+/* -------------------------------------------------------------------------- */
+
+const NOW = new Date("2026-07-27T10:00:00.000Z");
+
+test("the trace captures all five things Rule 22 requires", () => {
+  const g = gate({
+    call: { tool: "bash", command: "npm publish", args: { cwd: "." } },
+    paths: ["package.json"],
+    scope: SCOPE,
+    humanPresent: true,
+    sources: [{ kind: "user", ref: "chat turn 4", trust: "trusted" }],
+    now: NOW,
+  });
+
+  // (i) what information the agent had access to
+  assert.equal(g.trace.inputs.tool, "bash");
+  assert.equal(g.trace.inputs.command, "npm publish");
+  assert.deepEqual(g.trace.inputs.argKeys, ["cwd"]);
+  assert.deepEqual(g.trace.inputs.paths, ["package.json"]);
+  // (ii) sources and assigned trust
+  assert.equal(g.trace.sources[0].trust, "trusted");
+  // (iii) reasoning
+  assert.ok(g.trace.reasoning.length > 20);
+  // (iv) alternatives considered and why rejected
+  assert.ok(g.trace.alternatives.length > 0);
+  for (const alt of g.trace.alternatives) {
+    assert.notEqual(alt.option, g.decision, "the chosen option is not an alternative");
+    assert.ok(alt.rejected.length > 10, "each rejection needs a stated reason");
+  }
+  // (v) confidence
+  assert.equal(g.trace.confidence, "high");
+});
+
+test("the trace is stamped from an injected clock, keeping the gate pure", () => {
+  const args = { call: cmd("npm test"), scope: SCOPE, humanPresent: true, now: NOW };
+  assert.equal(gate(args).trace.ts, NOW.toISOString());
+  assert.deepEqual(gate(args), gate(args));
+});
+
+test("confidence is honest about the limits of the pattern list", () => {
+  // A match is positive evidence. Absence of a match is weaker — the pattern
+  // list is curated and will miss novel forms, as LR-04 says of its own.
+  assert.equal(gate({ call: cmd("npm publish"), scope: SCOPE, humanPresent: true }).trace.confidence, "high");
+  assert.equal(gate({ call: cmd("npm test"), scope: SCOPE, humanPresent: true }).trace.confidence, "medium");
+});
+
+test("an untrusted source lowers confidence rather than hiding it", () => {
+  const g = gate({
+    call: cmd("some-novel-command"),
+    scope: SCOPE,
+    humanPresent: true,
+    sources: [{ kind: "repo_context", ref: "README.md@abc123", trust: "untrusted" }],
+  });
+  assert.equal(g.trace.confidence, "low");
+});
+
+/* -------------------------------------------------------------------------- */
+/* Kernel Rule 15 — verification scales with stakes                            */
+/* -------------------------------------------------------------------------- */
+
+test("verification duty scales with the stake level", () => {
+  assert.equal(verificationDuty("auto"), "face_value");
+  assert.equal(verificationDuty("credentials"), "corroborated");
+  assert.equal(verificationDuty("external_service_setup"), "corroborated");
+  assert.equal(verificationDuty("destructive_actions"), "near_absolute");
+});
+
+test("the trace records the verification duty owed", () => {
+  const g = gate({ call: cmd("terraform apply"), scope: SCOPE, humanPresent: true });
+  assert.equal(g.trace.verificationDuty, "near_absolute");
+});
+
+test("an untrusted source informing an irreversible action is named in the reason (Rules 13/14/15)", () => {
+  const g = gate({
+    call: cmd("git push --force origin main"),
+    scope: SCOPE,
+    humanPresent: true,
+    sources: [{ kind: "repo_context", ref: "CONTRIBUTING.md@sha1", trust: "untrusted" }],
+  });
+  assert.equal(g.decision, "confirm");
+  assert.match(g.reason, /Rule 15/);
+  assert.match(g.reason, /CONTRIBUTING\.md@sha1/, "the human must see what steered the agent");
+});
+
+test("a trusted-only irreversible action still confirms, without the Rule 15 note", () => {
+  const g = gate({
+    call: cmd("npm publish"),
+    scope: SCOPE,
+    humanPresent: true,
+    sources: [{ kind: "user", ref: "chat", trust: "trusted" }],
+  });
+  assert.equal(g.decision, "confirm");
+  assert.equal(g.reason.includes("Rule 15"), false);
+});
+
+test("the trace is JSON-serializable for an append-only log", () => {
+  const g = gate({ call: cmd("rm -rf dist"), scope: SCOPE, humanPresent: false, now: NOW });
+  assert.doesNotThrow(() => JSON.parse(JSON.stringify(g.trace)));
 });

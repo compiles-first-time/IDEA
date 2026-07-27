@@ -78,5 +78,5 @@ never agent-writable.
 
 **Precedence, newest first:** `09` → `08` → `07` → `00`–`06`.
 
-> ⚠️ `09` §5 flags a blocker: `loom-template/constitution/kernel-v6.md` is still a
-> placeholder. The design leans on the kernel as its primary behavioral layer.
+> `09` §5: the canonical Trajectory Kernel V6 is installed (2026-07-27). Reading the
+> full text upgraded the Rule 22 trace record and added the Rule 15 verification ladder.

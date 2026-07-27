@@ -258,6 +258,62 @@ export function checkPath(target: string, ctx: ScopeContext): ScopeVerdict {
 export const Decision = z.enum(["allow", "confirm", "refuse"]);
 export type Decision = z.infer<typeof Decision>;
 
+/**
+ * Verification duty, scaled to stakes (Kernel Rule 15).
+ *
+ * *"Trivial actions can rely on face-value information. Actions approaching
+ * bright-line territory require near-absolute verification."*
+ */
+export const VerificationDuty = z.enum(["face_value", "corroborated", "near_absolute"]);
+export type VerificationDuty = z.infer<typeof VerificationDuty>;
+
+export function verificationDuty(category: PermissionCategory): VerificationDuty {
+  if (category === "destructive_actions") return "near_absolute";
+  if (category === "auto") return "face_value";
+  return "corroborated";
+}
+
+/** Where a piece of influencing information came from, and how far to trust it. */
+export const TraceSource = z.object({
+  kind: z.enum(["user", "repo_context", "tool_result", "registry", "external"]),
+  ref: z.string(),
+  /** LR-01: retrieved and external content is untrusted until validated. */
+  trust: z.enum(["trusted", "untrusted"]),
+});
+export type TraceSource = z.infer<typeof TraceSource>;
+
+/**
+ * A Kernel Rule 22 record.
+ *
+ * Rule 22 requires records be "verbose, explicit, and structurally accurate,"
+ * capturing five things. Each field below maps to one of them — the shape is
+ * the rule, not a convenience.
+ */
+export const KernelTrace = z.object({
+  ts: z.string(),
+  /** (i) what information the agent had access to */
+  inputs: z.object({
+    tool: z.string(),
+    command: z.string().nullable(),
+    argKeys: z.array(z.string()),
+    paths: z.array(z.string()),
+  }),
+  /** (ii) what sources it came from and what trust level was assigned */
+  sources: z.array(TraceSource),
+  /** (iii) what reasoning was applied */
+  reasoning: z.string(),
+  /** (iv) what alternatives were considered and why rejected */
+  alternatives: z.array(z.object({ option: Decision, rejected: z.string() })),
+  /** (v) confidence level in the resulting decision */
+  confidence: z.enum(["high", "medium", "low"]),
+  category: PermissionCategory,
+  enforcement: Enforcement,
+  matched: z.string().nullable(),
+  decision: Decision,
+  verificationDuty: VerificationDuty,
+});
+export type KernelTrace = z.infer<typeof KernelTrace>;
+
 export interface GateInput {
   call: ToolCall;
   /** Paths the call will touch, if known. */
@@ -265,6 +321,10 @@ export interface GateInput {
   scope: ScopeContext;
   /** False when the agent runs unattended — nobody is there to confirm. */
   humanPresent: boolean;
+  /** What informed this call. Untrusted sources raise the verification bar. */
+  sources?: readonly TraceSource[];
+  /** ISO timestamp; a parameter so the gate stays pure and testable. */
+  now?: Date;
 }
 
 export interface GateResult {
@@ -272,14 +332,8 @@ export interface GateResult {
   classification: Classification;
   /** Human-readable, shown to the user or handed back to the agent. */
   reason: string;
-  /** Rule 22: what gets written to the trace log. */
-  trace: {
-    tool: string;
-    category: PermissionCategory;
-    enforcement: Enforcement;
-    matched: string | null;
-    decision: Decision;
-  };
+  /** Kernel Rule 22 record. */
+  trace: KernelTrace;
 }
 
 /**
@@ -292,45 +346,58 @@ export interface GateResult {
  */
 export function gate(input: GateInput): GateResult {
   const classification = classify(input.call);
+  const untrusted = (input.sources ?? []).filter((s) => s.trust === "untrusted");
 
   // Scope is checked first: an out-of-bounds path is refused outright, never
   // escalated to a confirmation the user might wave through.
   for (const path of input.paths ?? []) {
     const verdict = checkPath(path, input.scope);
     if (!verdict.allowed) {
-      return result("refuse", classification, `Refused: ${verdict.reason}.`, input.call);
+      return build("refuse", classification, `Refused: ${verdict.reason}.`, input, [
+        { option: "allow", rejected: verdict.reason ?? "outside the agent's scope" },
+        { option: "confirm", rejected: "a scope violation must not become a prompt a user can wave through" },
+      ]);
     }
   }
 
   if (classification.enforcement === "hard") {
-    if (!input.humanPresent) {
-      // FR-11.5 — pause and surface rather than proceed or silently fail.
-      return result(
-        "confirm",
-        classification,
-        `Paused: this is an irreversible action (${classification.category}) and no one is available to confirm it. ` +
-          `Kernel Rule 20 requires confirmation before destructive operations.`,
-        input.call,
-      );
-    }
-    return result(
-      "confirm",
-      classification,
-      `Confirmation required: ${describe(classification)} Kernel Rule 20 — destructive operations require confirmation.`,
-      input.call,
-    );
+    /* Rule 15: near-absolute verification is required at this stake level. An
+       untrusted source informing an irreversible action is exactly the Rule
+       13/14 shape — a fabricating supplier steering an agent as an instrument. */
+    const rule15 =
+      untrusted.length > 0
+        ? ` Rule 15 — this action was informed by ${untrusted.length} untrusted source(s) ` +
+          `(${untrusted.map((s) => s.ref).join(", ")}) and requires near-absolute verification before proceeding.`
+        : "";
+
+    const reason = input.humanPresent
+      ? `Confirmation required: ${describe(classification)} Kernel Rule 20 — destructive operations require confirmation.${rule15}`
+      : `Paused: this is an irreversible action (${classification.category}) and no one is available to confirm it. ` +
+        `Kernel Rule 20 requires confirmation before destructive operations.${rule15}`;
+
+    return build("confirm", classification, reason, input, [
+      { option: "allow", rejected: "irreversible under Rule 20 — reversibility is the axis, not capability" },
+      { option: "refuse", rejected: "the action is in scope and may be legitimate; Rule 8 leaves the choice to the human" },
+    ]);
   }
 
   if (classification.enforcement === "soft") {
-    return result(
+    return build(
       "allow",
       classification,
       `Allowed and logged: ${describe(classification)} LR-04 soft enforcement — the Critic reviews drift.`,
-      input.call,
+      input,
+      [
+        { option: "confirm", rejected: "reversible — Rule 20 does not require confirmation" },
+        { option: "refuse", rejected: "in scope and reversible" },
+      ],
     );
   }
 
-  return result("allow", classification, "Reversible action — auto-approved (Kernel Rule 20).", input.call);
+  return build("allow", classification, "Reversible action — auto-approved (Kernel Rule 20).", input, [
+    { option: "confirm", rejected: "no pattern matched any non-auto category" },
+    { option: "refuse", rejected: "in scope" },
+  ]);
 }
 
 function describe(c: Classification): string {
@@ -338,22 +405,51 @@ function describe(c: Classification): string {
   return `classified ${c.category}${c.matched ? ` (matched \`${c.matched}\`)` : ""}.${quota}`;
 }
 
-function result(
+/**
+ * Confidence in the decision (Rule 22 item v).
+ *
+ * A matched pattern is positive evidence — high confidence. An `auto`
+ * classification rests on the *absence* of a match, which is weaker: the
+ * pattern list is curated and will miss novel forms, exactly as LR-02 and LR-04
+ * say of their own heuristics. Saying so is the honest reading of Rule 22.
+ */
+function confidenceOf(c: Classification, untrustedCount: number): "high" | "medium" | "low" {
+  if (c.matched) return "high";
+  if (untrustedCount > 0) return "low";
+  return "medium";
+}
+
+function build(
   decision: Decision,
   classification: Classification,
   reason: string,
-  call: ToolCall,
+  input: GateInput,
+  alternatives: Array<{ option: Decision; rejected: string }>,
 ): GateResult {
+  const sources = [...(input.sources ?? [])];
+  const untrustedCount = sources.filter((s) => s.trust === "untrusted").length;
+
   return {
     decision,
     classification,
     reason,
-    trace: {
-      tool: call.tool,
+    trace: KernelTrace.parse({
+      ts: (input.now ?? new Date()).toISOString(),
+      inputs: {
+        tool: input.call.tool,
+        command: input.call.command ?? null,
+        argKeys: Object.keys(input.call.args ?? {}).sort(),
+        paths: [...(input.paths ?? [])],
+      },
+      sources,
+      reasoning: reason,
+      alternatives: alternatives.filter((a) => a.option !== decision),
+      confidence: confidenceOf(classification, untrustedCount),
       category: classification.category,
       enforcement: classification.enforcement,
       matched: classification.matched,
       decision,
-    },
+      verificationDuty: verificationDuty(classification.category),
+    }),
   };
 }
