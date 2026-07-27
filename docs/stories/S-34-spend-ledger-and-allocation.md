@@ -1,6 +1,6 @@
 # S-34 — Spend ledger & financial allocation
 
-**Phase:** 2 · **Workstream:** 2 Router · **Status:** Not started
+**Phase:** 2 · **Workstream:** 2 Router · **Status:** ✅ **Done** (2026-07-26)
 **Component:** C-35 · **Traces to:** FR-4.9, FR-4.10, FR-4.3, E-4.b, E-4.f, NFR-1, NFR-4
 **Depends on:** S-07, S-27 · **Blocks:** S-33 (runtime), S-35
 

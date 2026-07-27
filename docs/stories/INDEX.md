@@ -39,7 +39,7 @@ to one, it's scope creep — write a new story or an exception first.
 | [S-07](S-07-cost-and-budget.md) | Cost math & pre-flight estimates | C-13 | ✅ **Done** |
 | [S-08](S-08-complexity-router.md) | Complexity scorer & model selector | C-12 | ✅ **Done** |
 | [S-33](S-33-fallback-chain.md) | User-ordered fallback chain | C-34 | ✅ **Done** |
-| [S-34](S-34-spend-ledger-and-allocation.md) | Spend ledger & financial allocation | C-35 | Not started |
+| [S-34](S-34-spend-ledger-and-allocation.md) | Spend ledger & financial allocation | C-35 | ✅ **Done** |
 | [S-09](S-09-chat-route-routing.md) | Chat route: mode, model, RoutingDecision, fallback | C-8 | ✅ **Done** |
 | [S-35](S-35-routing-settings-ui.md) | Routing & budget settings UI | C-36 | Not started |
 
@@ -84,7 +84,7 @@ to one, it's scope creep — write a new story or an exception first.
 | [S-25](S-25-repo-context-sha-pinning.md) | Repo context SHA pinning | C-7/C-8 | ✅ **Done** |
 | [S-26](S-26-secret-redaction.md) | Secret redaction before persistence | C-28 | ✅ **Done** — gates S-27 |
 | [S-27](S-27-conversation-store.md) | Conversation store (GitHub API) | C-27 | Not started |
-| [S-28](S-28-compaction-and-fidelity.md) | Compaction & fidelity reporting | C-29 | Not started |
+| [S-28](S-28-compaction-and-fidelity.md) | Compaction & fidelity reporting | C-29 | ✅ **Done** |
 | [S-32](S-32-conversation-resume-ui.md) | Conversation resume UI | C-32 | Not started |
 
 ## Workstream 8 — Provisioning *(new)*

@@ -1,6 +1,6 @@
 # S-28 — Compaction & fidelity reporting
 
-**Phase:** 2 · **Workstream:** 7 Conversations · **Status:** Not started
+**Phase:** 2 · **Workstream:** 7 Conversations · **Status:** ✅ **Done** (2026-07-26)
 **Component:** C-29 · **Traces to:** FR-9.6, E-9.b, NFR-1, NFR-5
 **Depends on:** S-23, S-27 · **Blocks:** S-32
 
