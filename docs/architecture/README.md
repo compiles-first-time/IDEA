@@ -80,3 +80,14 @@ never agent-writable.
 
 > `09` §5: the canonical Trajectory Kernel V6 is installed (2026-07-27). Reading the
 > full text upgraded the Rule 22 trace record and added the Rule 15 verification ladder.
+
+## Update: the Observatory is the dashboard (2026-07-27)
+
+**[10-observatory-merged.md](10-observatory-merged.md) supersedes the
+Observatory-as-separate-process model.**
+
+IDEA's dashboard *is* the Loom Observatory, projecting each project's event log.
+There is no `launch`, no `dashboardUrl`, no per-project server, and no `running`
+state — a project is not a process.
+
+**Precedence, newest first:** `10` → `09` → `08` → `07` → `00`–`06`.

@@ -15,16 +15,16 @@ import {
 /**
  * Provisioning (S-29, FR-8.3–8.7).
  *
- * Clone → install → bootstrap → verify → start, **in this process**. The
- * companion that used to own this work no longer exists
- * ([08-local-first](../../docs/architecture/08-local-first.md)); there is no
- * worker, no polling, and no token to pass.
+ * Clone → install → bootstrap → verify, **in this process**. The companion that
+ * used to own this work no longer exists (08-local-first), and there is nothing
+ * to start afterwards: a project is not a process, because IDEA's dashboard is
+ * the Observatory (10-observatory-merged).
  *
  * Steps come from the **validated registry**, never from repo content (E-8.c):
  * IDEA does not read a script list out of a cloned repo and execute it.
  */
 
-export const ProvisionStep = z.enum(["clone", "install", "bootstrap", "verify", "start"]);
+export const ProvisionStep = z.enum(["clone", "install", "bootstrap", "verify"]);
 export type ProvisionStep = z.infer<typeof ProvisionStep>;
 
 export const StepOutcome = z.object({
@@ -42,7 +42,6 @@ export interface ProvisionResult {
   log: StepOutcome[];
   /** The step that failed, if any. */
   failedAt: ProvisionStep | null;
-  pid: number | null;
 }
 
 export interface ProvisionOptions {
@@ -50,8 +49,6 @@ export interface ProvisionOptions {
   project: ProjectRecord;
   /** Progress callback — the route streams these to the UI (FR-8.3). */
   onStep?: (outcome: StepOutcome) => void;
-  /** Skip `start`; useful when the caller only wants the checkout ready. */
-  startDashboard?: boolean;
   timeoutMs?: number;
   /** Injected for tests. */
   run?: RunCommand;
@@ -208,131 +205,23 @@ export async function provision(opts: ProvisionOptions): Promise<ProvisionResult
   const verify = await timed("verify", async () => {
     const problems: string[] = [];
     if (!existsSync(join(root, ".git"))) problems.push("no .git directory after clone");
-    const launchFile = project.launch.split(/\s+/).slice(1)[0];
-    if (launchFile && !existsSync(join(root, launchFile))) {
-      problems.push(`launch target "${launchFile}" is missing`);
-    }
-    return problems.length
-      ? { ok: false, detail: problems.join("; ") }
-      : { ok: true, detail: "checkout looks complete" };
+    // A Loom project keeps its event log here. Its absence is normal before the
+    // first session, so it is reported rather than treated as a failure.
+    const hasEventLog = existsSync(join(root, "memory", "event-log"));
+
+    if (problems.length) return { ok: false, detail: problems.join("; ") };
+    return {
+      ok: true,
+      detail: hasEventLog
+        ? "checkout complete; event log present"
+        : "checkout complete; no event log yet (normal before the first session)",
+    };
   });
   if (!verify.ok) return failed(project.name, log, "verify");
 
-  /* start ---------------------------------------------------------------- */
-  if (opts.startDashboard === false) {
-    record(
-      StepOutcome.parse({
-        step: "start",
-        ok: true,
-        skipped: true,
-        detail: "not requested",
-        durationMs: 0,
-      }),
-    );
-    return { project: project.name, ok: true, log, failedAt: null, pid: null };
-  }
-
-  const started = await startDashboard(ideaRoot, project);
-  record(
-    StepOutcome.parse({
-      step: "start",
-      ok: started.ok,
-      skipped: false,
-      detail: started.detail,
-      durationMs: 0,
-    }),
-  );
-  return {
-    project: project.name,
-    ok: started.ok,
-    log,
-    failedAt: started.ok ? null : "start",
-    pid: started.pid,
-  };
+  return { project: project.name, ok: true, log, failedAt: null };
 }
 
 function failed(name: string, log: StepOutcome[], step: ProvisionStep): ProvisionResult {
-  return { project: name, ok: false, log, failedAt: step, pid: null };
-}
-
-/* -------------------------------------------------------------------------- */
-/* Dashboard process                                                           */
-/* -------------------------------------------------------------------------- */
-
-const running = new Map<string, { pid: number }>();
-
-/**
- * Start a project's dashboard.
- *
- * The launch command comes from the validated registry and is split into argv —
- * no shell (E-8.c). Returns once the process is spawned; liveness is decided by
- * probing the port, not by trusting a stored pid, so the answer survives a
- * restart of IDEA itself.
- */
-export async function startDashboard(
-  ideaRoot: string,
-  project: ProjectRecord,
-): Promise<{ ok: boolean; detail: string; pid: number | null }> {
-  if (await isDashboardUp(project)) {
-    return { ok: true, detail: "already running", pid: running.get(project.name)?.pid ?? null };
-  }
-
-  const root = projectRoot(ideaRoot, project);
-  const argv = project.launch.split(/\s+/).filter(Boolean);
-  if (argv.length === 0) return { ok: false, detail: "no launch command configured", pid: null };
-
-  const child = spawn(argv[0], argv.slice(1), {
-    cwd: root,
-    shell: false,
-    detached: process.platform !== "win32",
-    stdio: "ignore",
-  });
-  child.unref();
-
-  if (child.pid === undefined) {
-    return { ok: false, detail: "failed to spawn the dashboard", pid: null };
-  }
-  running.set(project.name, { pid: child.pid });
-
-  // Wait for the port to answer rather than optimistically reporting success.
-  for (let i = 0; i < 40; i++) {
-    if (await isDashboardUp(project)) {
-      return { ok: true, detail: `listening on ${project.dashboardUrl}`, pid: child.pid };
-    }
-    await sleep(250);
-  }
-  return {
-    ok: false,
-    detail: `started (pid ${child.pid}) but ${project.dashboardUrl} did not answer within 10s`,
-    pid: child.pid,
-  };
-}
-
-export async function stopDashboard(project: ProjectRecord): Promise<{ ok: boolean; detail: string }> {
-  const entry = running.get(project.name);
-  if (!entry) return { ok: true, detail: "not started by this process" };
-  try {
-    process.kill(entry.pid, "SIGTERM");
-  } catch {
-    // Already gone.
-  }
-  running.delete(project.name);
-  return { ok: true, detail: `stopped pid ${entry.pid}` };
-}
-
-/** Liveness by probe, never by remembered pid. */
-export async function isDashboardUp(project: ProjectRecord): Promise<boolean> {
-  try {
-    const res = await fetch(project.dashboardUrl, {
-      method: "GET",
-      signal: AbortSignal.timeout(1000),
-    });
-    return res.status < 500;
-  } catch {
-    return false;
-  }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
+  return { project: name, ok: false, log, failedAt: step };
 }

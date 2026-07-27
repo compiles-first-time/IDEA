@@ -6,11 +6,11 @@ import {
   ProjectStatus,
   hasDependencies,
   isProvisioned,
+  observatoryPathFor,
   parseProjects,
   type ProjectRecord,
   type ProjectsFile,
 } from "@/lib/projects";
-import { isDashboardUp } from "@/lib/provision";
 
 /**
  * Reading and writing `config/projects.json`, plus live status.
@@ -36,22 +36,21 @@ export async function saveProjects(file: ProjectsFile, ideaRoot = process.cwd())
 }
 
 /**
- * Live state, derived from disk and a port probe.
+ * Live state, derived from disk.
  *
- * Never from a remembered pid: that would be wrong the moment IDEA restarts,
- * and a stale "running" badge is worse than no badge.
+ * There is no `running` state and no port probe: a project is not a process.
+ * IDEA renders its Observatory itself (10-observatory-merged), so a project is
+ * either set up or it isn't.
  */
-export async function statusOf(
-  project: ProjectRecord,
-  ideaRoot = process.cwd(),
-): Promise<ProjectStatus> {
-  const base = { name: project.name, dashboardUrl: project.dashboardUrl, pid: null, error: null };
+export function statusOf(project: ProjectRecord, ideaRoot = process.cwd()): ProjectStatus {
+  const base = {
+    name: project.name,
+    error: null,
+    observatoryPath: observatoryPathFor(project.name),
+  };
 
   if (!isProvisioned(ideaRoot, project)) {
     return ProjectStatus.parse({ ...base, state: "unprovisioned" });
-  }
-  if (await isDashboardUp(project)) {
-    return ProjectStatus.parse({ ...base, state: "running" });
   }
   return ProjectStatus.parse({
     ...base,
@@ -65,7 +64,6 @@ export interface ProjectView {
   gitUrl: string;
   owner: string;
   repo: string;
-  dashboardUrl: string;
   seededFrom: string | null;
   status: ProjectStatus;
 }
@@ -73,15 +71,13 @@ export interface ProjectView {
 /** Everything the projects page needs, in one call. */
 export async function projectViews(ideaRoot = process.cwd()): Promise<ProjectView[]> {
   const file = await loadProjects(ideaRoot);
-  const statuses = await Promise.all(file.projects.map((p) => statusOf(p, ideaRoot)));
-  return file.projects.map((p, i) => ({
+  return file.projects.map((p) => ({
     name: p.name,
     title: p.title,
     gitUrl: p.gitUrl,
     owner: p.owner,
     repo: p.repo,
-    dashboardUrl: p.dashboardUrl,
     seededFrom: p.seededFrom ?? null,
-    status: statuses[i],
+    status: statusOf(p, ideaRoot),
   }));
 }

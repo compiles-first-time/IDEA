@@ -1,0 +1,365 @@
+"use client";
+
+import { useCallback, useState } from "react";
+
+/**
+ * The Observatory (S-37, FR-12).
+ *
+ * This *is* IDEA's dashboard — not a link to a separate server. It renders the
+ * projection over a project's event log, and rolls up across projects.
+ */
+
+interface SessionSummary {
+  sessionId: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  toolCalls: number;
+  errors: number;
+  lastTool: string | null;
+}
+
+interface ActivityItem {
+  at: string | null;
+  kind: string;
+  detail: string;
+}
+
+export interface ObservatoryState {
+  project: string;
+  sessions: { active: SessionSummary[]; history: SessionSummary[] };
+  cost: { inputTokens: number; outputTokens: number; estimatedUsd: number };
+  failures: {
+    errors: Array<{ at: string | null; tool: string | null; preview: string | null }>;
+    signatures: Record<string, number>;
+  };
+  compliance: {
+    destructiveOps: Array<{ at: string | null; detail: string }>;
+    constitutionChecksMissing: number;
+  };
+  agents: { spawned: string[]; retired: string[] };
+  deploys: { history: Array<{ at: string | null; status: string; detail: string }> };
+  testing: { lastRun: string | null; passed: number; failed: number };
+  tickets: Array<{ id: string; state: string; title: string }>;
+  activity: ActivityItem[];
+  unknownEventTypes: Record<string, number>;
+  meta: { eventsRead: number; filesRead: number; newestEventAt: string | null; hasEventLog: boolean };
+}
+
+export interface CrossProjectSummary {
+  projects: Array<{
+    name: string;
+    activeSessions: number;
+    totalSessions: number;
+    errors: number;
+    estimatedUsd: number;
+    lastActivityAt: string | null;
+    hasEventLog: boolean;
+  }>;
+  totals: { activeSessions: number; errors: number; estimatedUsd: number };
+}
+
+function when(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
+}
+
+function usd(n: number): string {
+  return n === 0 ? "$0.00" : n < 0.01 ? `$${n.toFixed(5)}` : `$${n.toFixed(2)}`;
+}
+
+function Stat({ label, value, tone }: { label: string; value: string; tone?: "warn" | "bad" }) {
+  const color = tone === "bad" ? "text-red-300" : tone === "warn" ? "text-amber-300" : "text-neutral-100";
+  return (
+    <div className="rounded-lg border border-neutral-800 p-3">
+      <div className="text-xs text-neutral-500">{label}</div>
+      <div className={`mt-1 text-xl font-medium ${color}`}>{value}</div>
+    </div>
+  );
+}
+
+function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-lg border border-neutral-800 p-4">
+      <h2 className="mb-2 text-sm font-medium">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Across projects                                                             */
+/* -------------------------------------------------------------------------- */
+
+export function CrossProjectView({ summary }: { summary: CrossProjectSummary }) {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        <Stat label="Active sessions" value={String(summary.totals.activeSessions)} />
+        <Stat
+          label="Errors"
+          value={String(summary.totals.errors)}
+          tone={summary.totals.errors > 0 ? "warn" : undefined}
+        />
+        <Stat label="Spent" value={usd(summary.totals.estimatedUsd)} />
+      </div>
+
+      <Panel title="Projects">
+        {summary.projects.length === 0 ? (
+          <p className="text-sm text-neutral-400">No projects registered yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {summary.projects.map((p) => (
+              <li key={p.name}>
+                <a
+                  href={`/observatory?project=${encodeURIComponent(p.name)}`}
+                  className="flex items-center justify-between rounded border border-neutral-800 px-3 py-2 text-sm hover:border-neutral-700"
+                >
+                  <span>
+                    {p.name}
+                    {!p.hasEventLog && (
+                      <span className="ml-2 text-xs text-neutral-500">no activity yet</span>
+                    )}
+                  </span>
+                  <span className="text-xs text-neutral-500">
+                    {p.totalSessions} sessions · {p.errors} errors · {usd(p.estimatedUsd)} ·{" "}
+                    {when(p.lastActivityAt)}
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* One project                                                                 */
+/* -------------------------------------------------------------------------- */
+
+export function ObservatoryView({ initial }: { initial: ObservatoryState }) {
+  const [state, setState] = useState(initial);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Agents write to the log while you watch, so a manual refresh is the
+  // honest minimum until this streams (FR-12.4).
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const res = await fetch(`/api/observatory?project=${encodeURIComponent(state.project)}`);
+      if (res.ok) setState((await res.json()).state);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [state.project]);
+
+  const unknown = Object.entries(state.unknownEventTypes);
+
+  if (!state.meta.hasEventLog) {
+    return (
+      <div className="space-y-4">
+        <Header project={state.project} onRefresh={refresh} refreshing={refreshing} />
+        <p className="rounded border border-neutral-800 p-6 text-center text-sm text-neutral-400">
+          Nothing recorded yet. This project writes to{" "}
+          <code className="text-neutral-300">memory/event-log/</code> as agents work — run a
+          session and it will appear here.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Header project={state.project} onRefresh={refresh} refreshing={refreshing} />
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat label="Active sessions" value={String(state.sessions.active.length)} />
+        <Stat
+          label="Errors"
+          value={String(state.failures.errors.length)}
+          tone={state.failures.errors.length > 0 ? "warn" : undefined}
+        />
+        <Stat label="Spent" value={usd(state.cost.estimatedUsd)} />
+        <Stat
+          label="Tests"
+          value={`${state.testing.passed} / ${state.testing.passed + state.testing.failed}`}
+          tone={state.testing.failed > 0 ? "bad" : undefined}
+        />
+      </div>
+
+      {/* Compliance first — Rule 20 and LR-04 breaches are what you want to see. */}
+      {(state.compliance.destructiveOps.length > 0 ||
+        state.compliance.constitutionChecksMissing > 0) && (
+        <Panel title="Compliance">
+          {state.compliance.constitutionChecksMissing > 0 && (
+            <p className="mb-2 rounded border border-amber-800 bg-amber-950 px-2 py-1 text-sm text-amber-200">
+              {state.compliance.constitutionChecksMissing} production mutation
+              {state.compliance.constitutionChecksMissing === 1 ? "" : "s"} without a
+              constitution-service check (LR-02).
+            </p>
+          )}
+          <ul className="space-y-1 text-sm text-neutral-300">
+            {state.compliance.destructiveOps.slice(0, 10).map((op, i) => (
+              <li key={i} className="flex justify-between gap-3">
+                <span className="truncate font-mono text-xs">{op.detail}</span>
+                <span className="shrink-0 text-xs text-neutral-500">{when(op.at)}</span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Panel title="Sessions">
+          {state.sessions.active.length === 0 && state.sessions.history.length === 0 ? (
+            <p className="text-sm text-neutral-400">No sessions recorded.</p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {[...state.sessions.active, ...state.sessions.history].slice(0, 12).map((s) => (
+                <li key={s.sessionId} className="flex justify-between gap-3">
+                  <span className="truncate">
+                    {!s.endedAt && <span className="mr-1 text-emerald-400">●</span>}
+                    {s.sessionId.slice(0, 8)}
+                    {s.lastTool && <span className="ml-2 text-neutral-500">{s.lastTool}</span>}
+                  </span>
+                  <span className="shrink-0 text-xs text-neutral-500">
+                    {s.toolCalls} calls
+                    {s.errors > 0 && <span className="text-amber-400"> · {s.errors} err</span>}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+
+        <Panel title="Repeat failures">
+          {Object.keys(state.failures.signatures).length === 0 ? (
+            <p className="text-sm text-neutral-400">No repeated errors.</p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {Object.entries(state.failures.signatures)
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 8)
+                .map(([sig, count]) => (
+                  <li key={sig} className="flex justify-between gap-3">
+                    <span className="truncate font-mono text-xs">{sig}</span>
+                    <span className="shrink-0 text-xs text-amber-400">×{count}</span>
+                  </li>
+                ))}
+            </ul>
+          )}
+          {/* Rule 10: a repeat is no longer innocent ignorance. */}
+          <p className="mt-2 text-xs text-neutral-500">
+            A signature seen more than once is worth a lesson — ignorance is a one-time
+            defence.
+          </p>
+        </Panel>
+
+        {state.agents.spawned.length > 0 && (
+          <Panel title="Specialists">
+            <div className="flex flex-wrap gap-1">
+              {state.agents.spawned.map((a) => (
+                <span key={a} className="rounded bg-neutral-800 px-2 py-0.5 text-xs">
+                  {a}
+                </span>
+              ))}
+            </div>
+          </Panel>
+        )}
+
+        {state.deploys.history.length > 0 && (
+          <Panel title="Deploys">
+            <ul className="space-y-1 text-sm">
+              {state.deploys.history.slice(-6).reverse().map((d, i) => (
+                <li key={i} className="flex justify-between gap-3">
+                  <span className="truncate">{d.detail}</span>
+                  <span
+                    className={`shrink-0 text-xs ${
+                      d.status === "non_progressing" ? "text-amber-400" : "text-neutral-500"
+                    }`}
+                  >
+                    {d.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        )}
+      </div>
+
+      <Panel title="Activity">
+        {state.activity.length === 0 ? (
+          <p className="text-sm text-neutral-400">Nothing yet.</p>
+        ) : (
+          <ul className="space-y-1 text-sm">
+            {state.activity.slice(0, 25).map((a, i) => (
+              <li key={i} className="flex gap-3">
+                <span className="w-36 shrink-0 text-xs text-neutral-500">{when(a.at)}</span>
+                <span className="w-24 shrink-0 text-xs text-neutral-400">{a.kind}</span>
+                <span className="truncate">{a.detail}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+
+      {/* FR-12.5 — schema drift is surfaced, never silently dropped. */}
+      {unknown.length > 0 && (
+        <Panel title="Unrecognised events">
+          <p className="mb-2 text-xs text-neutral-500">
+            This project logs event types IDEA doesn&rsquo;t know how to project yet. Shown so
+            drift is visible rather than silently producing a wrong number.
+          </p>
+          <ul className="space-y-1 text-sm">
+            {unknown.map(([type, count]) => (
+              <li key={type} className="flex justify-between gap-3">
+                <span className="font-mono text-xs">{type}</span>
+                <span className="text-xs text-neutral-500">×{count}</span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+
+      <p className="text-xs text-neutral-600">
+        {state.meta.eventsRead.toLocaleString()} events from {state.meta.filesRead} log file
+        {state.meta.filesRead === 1 ? "" : "s"} · newest {when(state.meta.newestEventAt)}
+      </p>
+    </div>
+  );
+}
+
+function Header({
+  project,
+  onRefresh,
+  refreshing,
+}: {
+  project: string;
+  onRefresh: () => void;
+  refreshing: boolean;
+}) {
+  return (
+    <header className="flex items-center justify-between">
+      <div>
+        <h1 className="text-2xl font-semibold">{project}</h1>
+        <p className="text-sm text-neutral-400">
+          Observatory — projected from this project&rsquo;s event log.
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <a href="/observatory" className="rounded border border-neutral-700 px-3 py-1.5 text-sm">
+          All projects
+        </a>
+        <button
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="rounded border border-neutral-700 px-3 py-1.5 text-sm disabled:opacity-40"
+        >
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </button>
+      </div>
+    </header>
+  );
+}

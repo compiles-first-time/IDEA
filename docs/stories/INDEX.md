@@ -88,6 +88,12 @@ to one, it's scope creep — write a new story or an exception first.
 | [S-28](S-28-compaction-and-fidelity.md) | Compaction & fidelity reporting | C-29 | ✅ **Done** |
 | [S-32](S-32-conversation-resume-ui.md) | Conversation resume UI | C-32 | ✅ **Done** |
 
+## Workstream 9 — Observatory *(new)*
+
+| ID | Story | Component | Status |
+|---|---|---|---|
+| [S-37](S-37-merged-observatory.md) | **The Observatory is the dashboard** | C-38, C-39 | ✅ **Done** |
+
 ## Workstream 8 — Provisioning *(new)*
 
 | ID | Story | Component | Status |
@@ -107,7 +113,7 @@ and localhost. That removal is the point of
 
 ## Phase 2 is complete
 
-**32 done · 4 deliberately closed · 0 outstanding.**
+**34 done · 4 deliberately closed · 0 outstanding.**
 
 The four closed ones are recorded rather than deleted, because the reasoning matters:
 

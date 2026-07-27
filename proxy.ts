@@ -45,5 +45,5 @@ export const config = {
    * not redirect to an HTML login page — a redirect would hand a JSON client a
    * confusing 200 full of markup.
    */
-  matcher: ["/", "/chat/:path*", "/projects/:path*"],
+  matcher: ["/", "/chat/:path*", "/projects/:path*", "/observatory/:path*", "/settings/:path*"],
 };

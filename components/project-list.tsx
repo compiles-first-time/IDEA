@@ -11,12 +11,13 @@ import { useCallback, useState } from "react";
  * Calls API routes only — no filesystem or process access from the browser (§C).
  */
 
-type ProjectState = "unprovisioned" | "provisioning" | "ready" | "running" | "error";
+type ProjectState = "unprovisioned" | "provisioning" | "ready" | "error";
 
 interface ProjectStatus {
   name: string;
   state: ProjectState;
-  dashboardUrl: string;
+  /** In-app route where IDEA renders this project's Observatory (FR-12.1). */
+  observatoryPath: string;
 }
 
 interface Project {
@@ -25,13 +26,12 @@ interface Project {
   gitUrl: string;
   owner: string;
   repo: string;
-  dashboardUrl: string;
   seededFrom: string | null;
   status: ProjectStatus;
 }
 
 interface StepOutcome {
-  step: "clone" | "install" | "bootstrap" | "verify" | "start";
+  step: "clone" | "install" | "bootstrap" | "verify";
   ok: boolean;
   skipped: boolean;
   detail: string;
@@ -43,14 +43,12 @@ const STEP_LABELS: Record<StepOutcome["step"], string> = {
   install: "Installing dependencies",
   bootstrap: "Running Loom bootstrap",
   verify: "Verifying the checkout",
-  start: "Starting the Observatory",
 };
 
 const STATE_LABELS: Record<ProjectState, string> = {
   unprovisioned: "Not set up",
   provisioning: "Setting up…",
   ready: "Ready",
-  running: "Running",
   error: "Error",
 };
 
@@ -58,16 +56,18 @@ const STATE_STYLES: Record<ProjectState, string> = {
   unprovisioned: "bg-neutral-800 text-neutral-300",
   provisioning: "bg-blue-900 text-blue-200",
   ready: "bg-emerald-900 text-emerald-200",
-  running: "bg-emerald-700 text-emerald-50",
   error: "bg-red-900 text-red-200",
 };
 
-/** The commands provisioning will run, shown before it runs them (E-8.d). */
+/**
+ * The commands provisioning will run, shown before it runs them (E-8.d).
+ *
+ * Nothing starts a server: IDEA's dashboard is the Observatory.
+ */
 const PLANNED_COMMANDS = [
   "git clone <repository> projects/<name>",
   "npm install",
   "node scripts/bootstrap.mjs   (if the project has one)",
-  "node observatory/server.mjs",
 ];
 
 export function ProjectList({ initialProjects }: { initialProjects: Project[] }) {
@@ -103,7 +103,7 @@ export function ProjectList({ initialProjects }: { initialProjects: Project[] })
         const res = await fetch(`/api/projects/${encodeURIComponent(project.name)}/provision`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ startDashboard: true }),
+          body: JSON.stringify({}),
         });
         if (!res.ok || !res.body) {
           throw new Error((await res.json().catch(() => ({}))).error ?? res.statusText);
@@ -248,26 +248,14 @@ export function ProjectList({ initialProjects }: { initialProjects: Project[] })
                         Set up
                       </button>
                     )}
-                    {(state === "ready" || state === "running") && (
-                      <>
-                        <a
-                          href={p.dashboardUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded border border-neutral-700 px-3 py-1.5 text-sm"
-                        >
-                          Observatory
-                        </a>
-                        {state === "ready" && (
-                          <button
-                            onClick={() => void runProvision(p)}
-                            disabled={busy !== null}
-                            className="rounded border border-neutral-700 px-3 py-1.5 text-sm disabled:opacity-40"
-                          >
-                            Start
-                          </button>
-                        )}
-                      </>
+                    {/* An in-app route, not a link to another server. */}
+                    {state === "ready" && (
+                      <a
+                        href={p.status.observatoryPath}
+                        className="rounded bg-neutral-100 px-3 py-1.5 text-sm font-medium text-neutral-900"
+                      >
+                        Open
+                      </a>
                     )}
                   </div>
                 </div>
@@ -284,7 +272,7 @@ export function ProjectList({ initialProjects }: { initialProjects: Project[] })
                         </span>
                       </li>
                     ))}
-                    {steps.length < 5 && <li className="text-neutral-500">Working…</li>}
+                    {steps.length < 4 && <li className="text-neutral-500">Working…</li>}
                   </ol>
                 )}
               </li>

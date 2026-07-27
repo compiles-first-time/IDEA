@@ -30,7 +30,6 @@ function record(over: Partial<ProjectRecord> = {}): ProjectRecord {
         owner: "me",
         repo: "my-app",
         root: "projects/my-app",
-        dashboardUrl: "http://127.0.0.1:4040",
         ...over,
       },
     ],
@@ -47,7 +46,6 @@ async function workspace(): Promise<string> {
 
 test("a valid project parses with sensible defaults", () => {
   const p = record();
-  assert.equal(p.launch, "node observatory/server.mjs");
   assert.equal(p.configPath, "observatory/config.yaml");
   assert.equal(p.conversationBranch, "idea/conversations");
   assert.equal(p.autostart, false);
@@ -59,9 +57,12 @@ test("path traversal in root is rejected", () => {
   }
 });
 
-test("a non-local dashboardUrl is rejected — dashboards are not hosted remotely", () => {
-  assert.throws(() => record({ dashboardUrl: "http://evil.com:4040" }), /must be local/);
-  assert.doesNotThrow(() => record({ dashboardUrl: "http://localhost:4040" }));
+test("there is no launch command or dashboard URL — a project is not a process", () => {
+  // 10-observatory-merged: IDEA renders the Observatory itself, so there is
+  // nothing to launch and nothing to link out to.
+  const p = record() as Record<string, unknown>;
+  assert.equal("launch" in p, false);
+  assert.equal("dashboardUrl" in p, false);
 });
 
 test("gitUrl must agree with owner/repo", () => {
@@ -91,7 +92,6 @@ test("duplicate project names are rejected", () => {
     owner: "me",
     repo: "dup",
     root: "projects/dup",
-    dashboardUrl: "http://127.0.0.1:4040",
   };
   assert.throws(() => parseProjects({ projects: [one, one] }), /duplicate project name/);
 });
@@ -121,7 +121,6 @@ test("projectFor builds a valid record from a new repo", () => {
   assert.equal(p.root, "projects/fresh");
   assert.equal(p.gitUrl, "https://github.com/me/fresh.git");
   assert.equal(p.seededFrom, "loom-template");
-  assert.equal(p.dashboardUrl, "http://127.0.0.1:4040");
 });
 
 /* -------------------------------------------------------------------------- */
@@ -205,7 +204,7 @@ test("a full provision runs clone then install, and reports each step", async (t
     ideaRoot: ws,
     project: record(),
     run,
-    startDashboard: false,
+    
     onStep: (o) => seen.push(o),
   });
 
@@ -214,7 +213,7 @@ test("a full provision runs clone then install, and reports each step", async (t
   assert.deepEqual(calls[0].slice(0, 2), ["git", "clone"]);
   assert.deepEqual(
     seen.map((s) => s.step),
-    ["clone", "install", "bootstrap", "verify", "start"],
+    ["clone", "install", "bootstrap", "verify"],
     "progress is reported per step (FR-8.3)",
   );
 });
@@ -225,7 +224,7 @@ test("provisioning is idempotent — an existing checkout skips clone (FR-8.6)",
   await provisioned(ws);
   const { run, calls } = fakeRunner(ws);
 
-  const r = await provision({ ideaRoot: ws, project: record(), run, startDashboard: false });
+  const r = await provision({ ideaRoot: ws, project: record(), run });
 
   assert.equal(r.ok, true);
   assert.equal(
@@ -244,7 +243,7 @@ test("existing dependencies skip install", async (t) => {
   await mkdir(join(ws, "projects", "my-app", "node_modules"), { recursive: true });
 
   const { run, calls } = fakeRunner(ws);
-  await provision({ ideaRoot: ws, project: record(), run, startDashboard: false });
+  await provision({ ideaRoot: ws, project: record(), run });
 
   assert.equal(
     calls.some((c) => c.join(" ").includes("npm install")),
@@ -257,7 +256,7 @@ test("a failed step stops the pipeline and names where it failed", async (t) => 
   t.after(() => rm(ws, { recursive: true, force: true }));
   const { run, calls } = fakeRunner(ws, ["git clone"]);
 
-  const r = await provision({ ideaRoot: ws, project: record(), run, startDashboard: false });
+  const r = await provision({ ideaRoot: ws, project: record(), run });
 
   assert.equal(r.ok, false);
   assert.equal(r.failedAt, "clone");
@@ -275,12 +274,12 @@ test("a partial failure can be resumed rather than requiring a wipe", async (t) 
   await writeFile(join(ws, "projects", "my-app", "package.json"), "{}");
   await provisioned(ws);
 
-  const a = await provision({ ideaRoot: ws, project: record(), run: first.run, startDashboard: false });
+  const a = await provision({ ideaRoot: ws, project: record(), run: first.run });
   assert.equal(a.failedAt, "install");
 
   // Second attempt: install now succeeds; clone is skipped, not repeated.
   const second = fakeRunner(ws);
-  const b = await provision({ ideaRoot: ws, project: record(), run: second.run, startDashboard: false });
+  const b = await provision({ ideaRoot: ws, project: record(), run: second.run });
   assert.equal(b.ok, true);
   assert.equal(
     second.calls.some((c) => c[1] === "clone"),
@@ -288,17 +287,44 @@ test("a partial failure can be resumed rather than requiring a wipe", async (t) 
   );
 });
 
-test("verify catches a checkout missing its launch target", async (t) => {
+test("verify reports a fresh checkout with no event log as normal, not a failure", async (t) => {
   const ws = await workspace();
   t.after(() => rm(ws, { recursive: true, force: true }));
   await partiallyCloned(ws);
 
   const { run } = fakeRunner(ws);
-  const r = await provision({ ideaRoot: ws, project: record(), run, startDashboard: false });
+  const r = await provision({ ideaRoot: ws, project: record(), run });
 
-  assert.equal(r.ok, false);
-  assert.equal(r.failedAt, "verify");
-  assert.match(r.log.find((s) => s.step === "verify")!.detail, /launch target/);
+  assert.equal(r.ok, true, "a project that has not run yet is fine");
+  assert.match(r.log.find((s) => s.step === "verify")!.detail, /no event log yet/);
+});
+
+test("verify notes an event log when the project has already run", async (t) => {
+  const ws = await workspace();
+  t.after(() => rm(ws, { recursive: true, force: true }));
+  await partiallyCloned(ws);
+  await mkdir(join(ws, "projects", "my-app", "memory", "event-log"), { recursive: true });
+
+  const { run } = fakeRunner(ws);
+  const r = await provision({ ideaRoot: ws, project: record(), run });
+
+  assert.equal(r.ok, true);
+  assert.match(r.log.find((s) => s.step === "verify")!.detail, /event log present/);
+});
+
+test("provisioning ends at verify — there is nothing to start", async (t) => {
+  const ws = await workspace();
+  t.after(() => rm(ws, { recursive: true, force: true }));
+
+  const { run } = fakeRunner(ws);
+  const r = await provision({ ideaRoot: ws, project: record(), run });
+
+  // 10-observatory-merged: a project is not a process. IDEA renders its
+  // Observatory itself, so there is no server to launch afterwards.
+  assert.deepEqual(
+    r.log.map((s) => s.step),
+    ["clone", "install", "bootstrap", "verify"],
+  );
 });
 
 test("bootstrap is skipped when the project has no bootstrap script", async (t) => {
@@ -307,7 +333,7 @@ test("bootstrap is skipped when the project has no bootstrap script", async (t) 
   await provisioned(ws);
 
   const { run } = fakeRunner(ws);
-  const r = await provision({ ideaRoot: ws, project: record(), run, startDashboard: false });
+  const r = await provision({ ideaRoot: ws, project: record(), run });
   assert.equal(r.log.find((s) => s.step === "bootstrap")?.skipped, true);
 });
 
@@ -316,7 +342,7 @@ test("commands are argv arrays, never shell strings (E-8.c)", async (t) => {
   t.after(() => rm(ws, { recursive: true, force: true }));
   const { run, calls } = fakeRunner(ws);
 
-  await provision({ ideaRoot: ws, project: record(), run, startDashboard: false });
+  await provision({ ideaRoot: ws, project: record(), run });
 
   for (const argv of calls) {
     assert.ok(Array.isArray(argv), "every command is an argv array");

@@ -8,21 +8,22 @@ import { z } from "zod";
  *
  * A project is a **fresh clone of `loom-template` that became its own repo** —
  * holding that project's source, Loom state, and conversations. The registry
- * records where it lives and how to run it; the checkout itself is git-ignored
- * and never committed into IDEA (E-7.b).
+ * records where it lives; the checkout itself is git-ignored and never
+ * committed into IDEA (E-7.b).
  *
- * The validation here is security-relevant, not cosmetic: `root` feeds a
- * process spawn (S-29) and `dashboardUrl` feeds a link or a proxy, so a
- * registry that accepted `../../..` or `http://evil.com` would turn those
- * stories into vulnerabilities.
+ * ⚠️ There is no `launch` command and no `dashboardUrl`. A project is not a
+ * process: **IDEA's dashboard is the Observatory**
+ * ([10-observatory-merged.md](../docs/architecture/10-observatory-merged.md)),
+ * rendering each project's event log at an in-app route.
+ *
+ * `root` validation is still security-relevant — it feeds a clone target and a
+ * command's `cwd`, so a registry accepting `../../..` would be a vulnerability.
  */
 
 /** Where project checkouts live, relative to the IDEA repo. Git-ignored. */
 export const PROJECTS_DIR = "projects";
 
 export const DEFAULT_CONVERSATION_BRANCH = "idea/conversations";
-
-const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
 
 export const ProjectRecord = z
   .object({
@@ -37,8 +38,6 @@ export const ProjectRecord = z
     repo: z.string().min(1),
     /** Checkout location, relative to the IDEA repo (e.g. `projects/my-app`). */
     root: z.string().min(1),
-    launch: z.string().min(1).default("node observatory/server.mjs"),
-    dashboardUrl: z.url(),
     configPath: z.string().optional().default("observatory/config.yaml"),
     conversationBranch: z.string().min(1).default(DEFAULT_CONVERSATION_BRANCH),
     /** Provenance — which template this project was seeded from. */
@@ -51,20 +50,6 @@ export const ProjectRecord = z
         code: "custom",
         path: ["root"],
         message: "must be a relative path inside the repo, with no traversal",
-      });
-    }
-    let url: URL;
-    try {
-      url = new URL(p.dashboardUrl);
-    } catch {
-      ctx.addIssue({ code: "custom", path: ["dashboardUrl"], message: "is not a URL" });
-      return;
-    }
-    if (!LOCAL_HOSTS.has(url.hostname)) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["dashboardUrl"],
-        message: "must be local (127.0.0.1 or localhost) — dashboards are not hosted remotely",
       });
     }
     if (!p.gitUrl.includes(`${p.owner}/${p.repo}`)) {
@@ -127,16 +112,16 @@ export function projectRoot(ideaRoot: string, project: ProjectRecord): string {
 /* State                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export const ProjectState = z.enum(["unprovisioned", "provisioning", "ready", "running", "error"]);
+export const ProjectState = z.enum(["unprovisioned", "provisioning", "ready", "error"]);
 export type ProjectState = z.infer<typeof ProjectState>;
 
 export const ProjectStatus = z.object({
   name: z.string(),
   state: ProjectState,
-  dashboardUrl: z.url(),
-  pid: z.number().nullable(),
   /** Present when state is `error`. */
   error: z.string().nullable(),
+  /** Where IDEA renders this project's Observatory — an in-app route (FR-12.1). */
+  observatoryPath: z.string(),
 });
 export type ProjectStatus = z.infer<typeof ProjectStatus>;
 
@@ -165,7 +150,6 @@ export function projectFor(input: {
   owner: string;
   repo: string;
   seededFrom?: string;
-  dashboardPort?: number;
 }): ProjectRecord {
   return ProjectRecord.parse({
     name: input.name,
@@ -174,7 +158,11 @@ export function projectFor(input: {
     owner: input.owner,
     repo: input.repo,
     root: `${PROJECTS_DIR}/${input.name}`,
-    dashboardUrl: `http://127.0.0.1:${input.dashboardPort ?? 4040}`,
     ...(input.seededFrom ? { seededFrom: input.seededFrom } : {}),
   });
+}
+
+/** Where IDEA renders this project's Observatory (FR-12.1). */
+export function observatoryPathFor(name: string): string {
+  return `/observatory?project=${encodeURIComponent(name)}`;
 }
