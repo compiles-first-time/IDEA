@@ -86,9 +86,32 @@ is bounded by file count and event count so a large history cannot hang the page
 | `running` project state | A project is not a process |
 | The `DELETE …/provision` stop handler | Nothing to stop |
 
-## Honest limitation
+## Live updates (FR-12.4)
 
-The dashboard refreshes on demand rather than streaming. Loom's own Observatory
-uses SSE, and FR-12.4 asks for live updates; a file watcher plus SSE is the
-follow-up. The manual refresh is stated plainly in the UI rather than a stale
-view pretending to be live.
+The dashboard streams. `GET /api/observatory/stream?project=` holds an SSE
+connection; `lib/observatory-stream.ts` watches `memory/event-log/` and pushes a
+fresh projection whenever it changes. There is no refresh button — an agent
+writing an event lands on screen on its own.
+
+Four decisions worth recording:
+
+- **Full state per frame, not diffs.** The projection is already bounded by file
+  and event caps, so a snapshot is cheap — and a snapshot cannot drift out of
+  sync with the client the way an incremental stream can.
+- **A poll backs up the watcher.** `fs.watch` misses events on some platforms and
+  network drives, and it cannot watch a directory that does not exist yet — a
+  project that has never run has no `memory/event-log/`. A 5s poll re-arms the
+  watcher and catches what it dropped. It only pushes when the projection
+  actually moved (`eventsRead` + newest timestamp), so a quiet project is quiet
+  on the wire too.
+- **Bursts coalesce.** A 250ms debounce means one save is one update, not one
+  frame per appended line. Re-projections never overlap; one triggered mid-flight
+  is deferred so frames cannot arrive out of order.
+- **The connection state is shown, not hidden.** "Live" / "Connecting…" /
+  "Reconnecting…" — `EventSource` retries on its own, and a dashboard that has
+  silently stopped updating is worse than one that admits it.
+
+Every exit path releases the watcher and the timers, wired to the request's
+abort signal: a closed tab must not leave a file handle and an interval alive for
+the life of the process. The watcher is non-persistent so an open dashboard never
+keeps `npx idea` from exiting.

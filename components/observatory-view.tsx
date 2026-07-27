@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useEffect, useState } from "react";
 
 /**
  * The Observatory (S-37, FR-12).
@@ -139,32 +139,55 @@ export function CrossProjectView({ summary }: { summary: CrossProjectSummary }) 
 /* One project                                                                 */
 /* -------------------------------------------------------------------------- */
 
-export function ObservatoryView({ initial }: { initial: ObservatoryState }) {
+type Connection = "connecting" | "live" | "reconnecting";
+
+/**
+ * Subscribe to the live projection.
+ *
+ * `EventSource` reconnects on its own, so this only has to track *whether* it is
+ * connected in order to say so honestly — a dashboard that has silently stopped
+ * updating is worse than one that admits it.
+ */
+function useLiveState(initial: ObservatoryState) {
   const [state, setState] = useState(initial);
-  const [refreshing, setRefreshing] = useState(false);
+  const [connection, setConnection] = useState<Connection>("connecting");
+  const [lastUpdate, setLastUpdate] = useState<number | null>(null);
 
-  // Agents write to the log while you watch, so a manual refresh is the
-  // honest minimum until this streams (FR-12.4).
-  const refresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      const res = await fetch(`/api/observatory?project=${encodeURIComponent(state.project)}`);
-      if (res.ok) setState((await res.json()).state);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [state.project]);
+  useEffect(() => {
+    const source = new EventSource(
+      `/api/observatory/stream?project=${encodeURIComponent(initial.project)}`,
+    );
 
+    source.addEventListener("state", (e) => {
+      setState(JSON.parse((e as MessageEvent).data));
+      setConnection("live");
+      setLastUpdate(Date.now());
+    });
+    source.addEventListener("ping", () => setConnection("live"));
+    source.addEventListener("open", () => setConnection("live"));
+    source.addEventListener("error", () => {
+      // EventSource retries by itself; say so rather than showing a dead page.
+      setConnection("reconnecting");
+    });
+
+    return () => source.close();
+  }, [initial.project]);
+
+  return { state, connection, lastUpdate };
+}
+
+export function ObservatoryView({ initial }: { initial: ObservatoryState }) {
+  const { state, connection, lastUpdate } = useLiveState(initial);
   const unknown = Object.entries(state.unknownEventTypes);
 
   if (!state.meta.hasEventLog) {
     return (
       <div className="space-y-4">
-        <Header project={state.project} onRefresh={refresh} refreshing={refreshing} />
+        <Header project={state.project} connection={connection} lastUpdate={lastUpdate} />
         <p className="rounded border border-neutral-800 p-6 text-center text-sm text-neutral-400">
           Nothing recorded yet. This project writes to{" "}
           <code className="text-neutral-300">memory/event-log/</code> as agents work — run a
-          session and it will appear here.
+          session and it will appear here, live.
         </p>
       </div>
     );
@@ -172,7 +195,7 @@ export function ObservatoryView({ initial }: { initial: ObservatoryState }) {
 
   return (
     <div className="space-y-4">
-      <Header project={state.project} onRefresh={refresh} refreshing={refreshing} />
+      <Header project={state.project} connection={connection} lastUpdate={lastUpdate} />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Active sessions" value={String(state.sessions.active.length)} />
@@ -331,34 +354,48 @@ export function ObservatoryView({ initial }: { initial: ObservatoryState }) {
   );
 }
 
+const CONNECTION_LABEL: Record<Connection, string> = {
+  connecting: "Connecting…",
+  live: "Live",
+  reconnecting: "Reconnecting…",
+};
+
+const CONNECTION_STYLE: Record<Connection, string> = {
+  connecting: "text-neutral-500",
+  live: "text-emerald-400",
+  reconnecting: "text-amber-400",
+};
+
 function Header({
   project,
-  onRefresh,
-  refreshing,
+  connection,
+  lastUpdate,
 }: {
   project: string;
-  onRefresh: () => void;
-  refreshing: boolean;
+  connection: Connection;
+  lastUpdate: number | null;
 }) {
   return (
     <header className="flex items-center justify-between">
       <div>
         <h1 className="text-2xl font-semibold">{project}</h1>
         <p className="text-sm text-neutral-400">
-          Observatory — projected from this project&rsquo;s event log.
+          Observatory — projected live from this project&rsquo;s event log.
         </p>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
+        <span className={`flex items-center gap-1.5 text-xs ${CONNECTION_STYLE[connection]}`}>
+          <span aria-hidden>{connection === "live" ? "●" : "○"}</span>
+          {CONNECTION_LABEL[connection]}
+          {connection === "live" && lastUpdate && (
+            <span className="text-neutral-600">
+              · updated {new Date(lastUpdate).toLocaleTimeString()}
+            </span>
+          )}
+        </span>
         <a href="/observatory" className="rounded border border-neutral-700 px-3 py-1.5 text-sm">
           All projects
         </a>
-        <button
-          onClick={onRefresh}
-          disabled={refreshing}
-          className="rounded border border-neutral-700 px-3 py-1.5 text-sm disabled:opacity-40"
-        >
-          {refreshing ? "Refreshing…" : "Refresh"}
-        </button>
       </div>
     </header>
   );
