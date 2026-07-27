@@ -1,6 +1,6 @@
 # S-18 — Project registry
 
-**Phase:** 2 · **Workstream:** 6 Projects & Loom · **Status:** Not started
+**Phase:** 2 · **Workstream:** 6 Projects & Loom · **Status:** ✅ **Done** (2026-07-27)
 **Component:** C-21 · **Traces to:** FR-7.1, E-7.b, AD-4, AD-5
 **Depends on:** S-02 · **Blocks:** S-19, S-22
 

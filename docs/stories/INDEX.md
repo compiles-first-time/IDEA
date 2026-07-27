@@ -71,7 +71,7 @@ to one, it's scope creep — write a new story or an exception first.
 | ID | Story | Component | Status |
 |---|---|---|---|
 | [S-22](S-22-loom-vendor-and-cost-seed.md) | Seed cost rates from Loom's config | 06-loom | Not started — *narrowed* |
-| [S-18](S-18-project-registry.md) | Project registry | C-21 | Not started — *expanded* |
+| [S-18](S-18-project-registry.md) | Project registry | C-21 | ✅ **Done** |
 | [S-19](S-19-projects-process-api.md) | Projects API: start / stop / status | C-22 | Not started — *narrowed to a proxy* |
 | [S-20](S-20-dashboard-proxy.md) | Dashboard same-origin proxy | C-22 | **Won't do** (recommended) |
 | [S-21](S-21-project-pane-ui.md) | Project pane UI | C-23 | **Won't do** — folded into S-31 |
@@ -92,9 +92,9 @@ to one, it's scope creep — write a new story or an exception first.
 
 | ID | Story | Component | Status |
 |---|---|---|---|
-| [S-29](S-29-provisioning-engine.md) | Companion: provisioning engine | C-30 | Not started |
-| [S-30](S-30-project-creation-from-template.md) | Project creation from `loom-template` | C-33 | Not started |
-| [S-31](S-31-projects-page.md) | Projects page | C-31 | Not started |
+| [S-29](S-29-provisioning-engine.md) | Companion: provisioning engine | C-30 | ✅ **Done** |
+| [S-30](S-30-project-creation-from-template.md) | Project creation from `loom-template` | C-33 | ✅ **Done** |
+| [S-31](S-31-projects-page.md) | Projects page | C-31 | ✅ **Done** |
 
 ---
 
