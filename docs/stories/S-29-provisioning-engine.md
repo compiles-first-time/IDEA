@@ -1,6 +1,6 @@
 # S-29 — Companion: provisioning engine
 
-**Phase:** 2 · **Workstream:** 8 Provisioning · **Status:** Not started
+**Phase:** 2 · **Workstream:** 8 Provisioning · **Status:** 🔓 Unblocked by [08-local-first](../architecture/08-local-first.md) — no companion hop
 **Component:** C-30 (companion) · **Traces to:** FR-8.3, FR-8.4, FR-8.5, FR-8.6, FR-8.7, E-8.a, E-8.c, E-8.d, AD-1
 **Depends on:** S-16, S-18 · **Blocks:** S-30, S-31
 

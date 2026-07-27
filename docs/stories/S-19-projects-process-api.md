@@ -6,7 +6,7 @@
 > to the companion. Do not implement `spawn` here — a Vercel route must not spawn
 > anything (E-8.a). If S-29 lands first, this shrinks to a proxy.
 
-**Phase:** 2 · **Workstream:** 6 Projects & Loom · **Status:** Not started
+**Phase:** 2 · **Workstream:** 6 Projects & Loom · **Status:** 🔓 Unblocked by [08-local-first](../architecture/08-local-first.md) — no companion hop
 **Component:** C-22 · **Traces to:** FR-7.2, FR-7.4, E-7.a, NFR-2
 **Depends on:** S-18 · **Blocks:** S-21
 

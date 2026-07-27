@@ -1,6 +1,6 @@
 # S-30 — Project creation (fresh clone of loom-template)
 
-**Phase:** 2 · **Workstream:** 8 Provisioning · **Status:** Not started
+**Phase:** 2 · **Workstream:** 8 Provisioning · **Status:** 🔓 Unblocked by [08-local-first](../architecture/08-local-first.md) — no companion hop
 **Component:** C-33 · **Traces to:** FR-8.2, E-8.b, E-8.e, GE-4 (amended), AD-5
 **Depends on:** S-18, S-29 · **Blocks:** S-31
 

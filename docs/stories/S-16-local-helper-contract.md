@@ -1,13 +1,23 @@
 # S-16 — Local companion contract & protocol
 
-> **⚠️ Promoted to Phase 0 — load-bearing.** This was scoped as an optional Phase-2
-> helper for local models. With provisioning adopted (FR-8), the companion is the
-> component that project setup, the Observatory, *and* local models all run on. Nothing
-> in Workstream 5 or 8 works without it. **Build it early.**
-> See [07-amendments.md](../architecture/07-amendments.md) §1.
+> # ❌ Won't do — the companion no longer exists
 >
-> It is *not* required for chat or conversations — those go through the GitHub API
-> (S-27) and work with the companion off. Preserve that split.
+> **Superseded by [08-local-first.md](../architecture/08-local-first.md) (2026-07-27).**
+>
+> IDEA now runs on the user's own machine. The companion existed for exactly one
+> reason: a Vercel-hosted app cannot reach `127.0.0.1`. Removing that constraint
+> removes the entire component — its protocol, its `IDEA_HELPER_TOKEN`, its Host
+> allowlist, its polling, and the transport question that blocked five other stories.
+> Everything it was going to do is now ordinary server-side code in the app.
+>
+> **Kept for the reasoning**, not to build. Two things in it still matter and have
+> moved: the `HardwareReport` / `LocalModelInfo` shapes live in
+> [`lib/fit.ts`](../../lib/fit.ts), and binding to `127.0.0.1` by default is now
+> IDEA's own behavior (FR-10.3).
+>
+> *Original content below.*
+>
+> ---
 
 **Phase:** **0** · **Workstream:** 5 Local models / 8 Provisioning · **Status:** Not started
 **Component:** C-24 (external — runs on the user's machine) · **Traces to:** FR-6.2, FR-6.3, FR-8.4, E-6.a, E-6.b, E-8.a, AD-1

@@ -1,6 +1,6 @@
 # S-31 — Projects page
 
-**Phase:** 2 · **Workstream:** 8 Provisioning · **Status:** Not started
+**Phase:** 2 · **Workstream:** 8 Provisioning · **Status:** 🔓 Unblocked by [08-local-first](../architecture/08-local-first.md) — no companion hop
 **Component:** C-31 · **Traces to:** FR-8.1, FR-8.3, FR-8.5, FR-8.7, E-8.d, E-7.a
 **Depends on:** S-29, S-30 · **Blocks:** nothing
 

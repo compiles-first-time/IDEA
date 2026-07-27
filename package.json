@@ -5,11 +5,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node ./bin/idea.mjs",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"lib/**/*.test.ts\"",
-    "test:watch": "tsx --test --watch \"lib/**/*.test.ts\""
+    "test:watch": "tsx --test --watch \"lib/**/*.test.ts\"",
+    "start:next": "next start"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.20",
@@ -32,5 +33,26 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.1",
     "typescript": "^5"
-  }
+  },
+  "bin": {
+    "idea": "./bin/idea.mjs"
+  },
+  "files": [
+    "app",
+    "bin",
+    "components",
+    "config",
+    "docs/architecture",
+    "lib",
+    "public",
+    "types",
+    "auth.ts",
+    "next.config.ts",
+    "postcss.config.mjs",
+    "tsconfig.json"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "description": "Provider-agnostic multi-LLM chat and agent console that runs on your machine."
 }

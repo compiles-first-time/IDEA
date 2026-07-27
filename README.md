@@ -1,56 +1,83 @@
 # IDEA
 
-A gated, multi-LLM console. The cloud hub (Vercel) for chatting across models, running
-portable skills/agents, and surfacing each project's local **Observatory** dashboard
-(Loom's `:4040` being the first project).
+A provider-agnostic multi-LLM chat and agent console that runs **on your own machine**.
 
-> **History:** this repo previously held an unbuilt Python "predictive governance platform."
-> That work is archived under [`archive/legacy-predictive-governance/`](archive/legacy-predictive-governance/)
-> for reference. The current app is a fresh Next.js build.
+Chat across models, pull GitHub repos in as context, and let IDEA route each turn to a
+cost-appropriate model — with conversations that survive being picked up by a different
+model later.
 
-## Status — Phase 1
+> **History:** this repo previously held an unbuilt Python "predictive governance platform,"
+> archived under [`archive/legacy-predictive-governance/`](archive/legacy-predictive-governance/).
+> It was then briefly a Vercel-hosted app; see
+> [`docs/architecture/08-local-first.md`](docs/architecture/08-local-first.md) for why it
+> now runs locally instead.
 
-Cloud-only on Vercel. Delivered:
+---
 
-- **Auth** — GitHub OAuth via Auth.js, gated by a **fail-closed allowlist** (`ALLOWED_LOGINS`).
-- **Chat** — streaming Claude via the Vercel AI SDK (provider-agnostic, so multi-model routing slots in later).
-- **Repo-pull** — browse your GitHub repos, read the file tree, and **attach files as chat context** (GitHub API; no local git needed).
-
-**Deliberately deferred** (later phases): manual/automatic model routing by complexity + cost,
-local-model management (Hugging Face search/install, hardware fit), the portable
-skills/agents runtime, and embedding each project's Observatory.
-
-## Run locally
+## Run it
 
 ```bash
-cp .env.example .env.local   # then fill it in (see below)
-npm install
-npm run dev                  # http://localhost:3000
+npx idea
 ```
 
-### Environment (`.env.local`)
+Your browser opens. No install step, no platform-specific build — Windows, macOS, and
+Linux from one codebase.
 
-| var | what |
+First run builds once (about a minute), then starts instantly.
+
+### Options
+
+```bash
+npx idea --port 5000      # different port (default 4300)
+npx idea --no-open        # don't open a browser
+npx idea --dev            # development mode
+npx idea --host 0.0.0.0   # expose to your network — see below
+```
+
+> **`--host` is off by default on purpose.** IDEA can read your files and run commands.
+> Only expose it on a network you trust.
+
+## Setup
+
+IDEA needs five settings in `.env.local`. Just run `npx idea` — it tells you exactly
+which are missing, how to get each one, and the precise OAuth callback URL for your port.
+
+| Setting | What it is |
 |---|---|
-| `AUTH_SECRET` | `npx auth secret` |
-| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | a GitHub OAuth App (callback `http://localhost:3000/api/auth/callback/github`) |
-| `ANTHROPIC_API_KEY` | from console.anthropic.com |
-| `ALLOWED_LOGINS` | comma-separated GitHub usernames allowed in (empty ⇒ **nobody**) |
-| `IDEA_CHAT_MODEL` | *optional* — model id your key can access (default `claude-sonnet-4-5`) |
+| `AUTH_SECRET` | Session secret — generate with `npx auth secret` |
+| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | A GitHub OAuth app (Settings → Developer settings) |
+| `ANTHROPIC_API_KEY` | From [console.anthropic.com](https://console.anthropic.com/) |
+| `ALLOWED_LOGINS` | GitHub usernames allowed to sign in, comma-separated |
+| `IDEA_CHAT_MODEL` | *Optional* — override the default model |
 
-## Deploy to Vercel
+> `ALLOWED_LOGINS` **fails closed**: if it's empty, nobody can sign in — including you.
 
-1. Push this repo (done) and import it at [vercel.com/new](https://vercel.com/new).
-2. Add the same env vars in **Project → Settings → Environment Variables**.
-3. In the GitHub OAuth App, add the production callback:
-   `https://<your-app>.vercel.app/api/auth/callback/github`.
-4. Deploy. Only allow-listed GitHub logins can sign in.
+## What it does
 
-## Architecture notes
+- **Chat** across models with streaming, and attach repo files as context.
+- **Automatic cost routing** — a deterministic scorer sizes each prompt and picks the
+  cheapest model that can handle it. No hidden ML: every weight and threshold is a named
+  constant you can read and change.
+- **Your own fallback order** — you decide which models are tried in which order. The
+  capability floor and your budget still apply; the ordering is yours.
+- **Budgets** in real dollars, per project and per period, that degrade to a cheaper
+  model rather than failing outright.
+- **Portable conversations** — transcripts are stored in a canonical, vendor-neutral
+  format in the project's own repo, so a conversation started on one model resumes on
+  another. When it can't fully fit, you're told exactly what was lost.
 
-- `auth.ts` / `auth.config.ts` — Auth.js (split config so middleware runs on the Edge).
-- `app/api/chat/route.ts` — streaming Claude; reads attached repo files as `context`.
-- `app/api/repos/*` — list repos / read tree / read a file (Octokit, user's token).
-- `components/chat-workspace.tsx` — the repo browser + chat client.
-- The AI SDK is model-agnostic on purpose: manual-vs-auto routing and local models
-  (via the Ollama provider or a local companion) attach without a rewrite.
+## Development
+
+```bash
+npm install
+npm run dev        # dev server
+npm test           # unit tests
+npm run typecheck
+npm run lint
+```
+
+## Documentation
+
+- [`docs/architecture/`](docs/architecture/README.md) — design of record.
+  Precedence: **`08` beats `07` beats `00`–`06`.**
+- [`docs/stories/INDEX.md`](docs/stories/INDEX.md) — the backlog and what's built.

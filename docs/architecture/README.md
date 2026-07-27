@@ -52,3 +52,17 @@ tracing back to a numbered requirement here. Start at
 
 **If a proposed change doesn't trace to a requirement in `01` or `07`, it's scope creep.**
 Write a story or an exception first.
+
+---
+
+## Update: local-first (2026-07-27)
+
+**[08-local-first.md](08-local-first.md) is the newest document and takes precedence
+over everything else, including `07`.**
+
+IDEA no longer runs on Vercel. It runs on the user's own machine and ships as a
+one-command package (`npx idea`). This deletes the local companion (C-24 / S-16)
+entirely and lifts three constraints — `E-2.a` (no local clone), `NFR-2`
+(serverless-safe), and the `AD-1` control/data plane split.
+
+**Precedence, newest first:** `08` → `07` → `00`–`06`.

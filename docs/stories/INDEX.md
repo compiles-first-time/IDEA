@@ -8,10 +8,10 @@ close gaps between the architecture package and the repo.
 Every story traces to a numbered requirement and a component. If a change doesn't trace
 to one, it's scope creep — write a new story or an exception first.
 
-> **Read [`07-amendments.md`](../architecture/07-amendments.md) before anything else.**
-> It adopts three decisions that expand Phase 2 well beyond the original package —
-> mandatory local companion, repo-resident conversations, project-per-repo — and it
-> **overrides `00`–`06` where they disagree.**
+> **Read [`08-local-first.md`](../architecture/08-local-first.md) first, then
+> [`07-amendments.md`](../architecture/07-amendments.md).** `08` is the newest and wins:
+> IDEA runs on the user's own machine and ships as a one-command package. `07` adds
+> repo-resident conversations and project-per-repo. Both override `00`–`06`.
 
 ---
 
@@ -21,8 +21,9 @@ to one, it's scope creep — write a new story or an exception first.
 |---|---|---|---|
 | [S-01](S-01-architecture-package-in-repo.md) | Land the architecture package in the repo | — | ✅ **Done** |
 | [S-02](S-02-test-harness.md) | Test harness for deterministic libs | — (NFR-1) | ✅ **Done** |
+| [S-36](S-36-cli-launcher.md) | **CLI launcher** (`npx idea`) | C-37 | ✅ **Done** |
 | [S-03](S-03-route-gating-middleware.md) | Route-gating middleware | C-3 | Not started |
-| [S-16](S-16-local-helper-contract.md) | **Local companion contract & protocol** | C-24 | Not started — **Phase 0** |
+| [S-16](S-16-local-helper-contract.md) | ~~Local companion contract~~ | C-24 | ❌ **Won't do** — superseded by `08` |
 
 ## Workstream 1 — Model registry & manual picker
 
@@ -97,37 +98,28 @@ to one, it's scope creep — write a new story or an exception first.
 
 ---
 
-## The two capability tiers
+## One tier now
 
-This split governs the whole backlog. Keep it intact — it's what lets IDEA stay useful
-when the companion isn't running.
+The capability split is gone. IDEA runs on the user's machine, so there is no
+"works here but not there" — every feature has the same access to files, processes,
+and localhost. That removal is the point of
+[`08-local-first.md`](../architecture/08-local-first.md).
 
-| Works anywhere (Vercel, any device) | Needs the local companion |
-|---|---|
-| Auth, repo browsing, chat, routing | Cloning, installing, Loom bootstrap |
-| **Conversations** (GitHub REST API) | Running the Observatory |
-| Model registry, picker, cost math | Local models, HF search/install, hardware |
-| Project creation (repo generate API) | Everything under `127.0.0.1` |
+## What remains
 
-## Build order
+**Conversations** — S-27 (store) is the last piece of persistence. Both of its hard
+prerequisites (S-25 pinning, S-26 redaction) are done. Then S-32 (resume UI).
 
-**Tier 0 — nothing works without these**
-S-02 (tests) → S-01 (docs) → S-16 (companion contract, **answer the transport question**)
+**Projects & provisioning** — S-18 (registry) → S-29 (provision in-process) →
+S-30 (create from template) → S-31 (projects page). S-19 folds into S-29.
 
-**Tier 1 — the conversation spine.** Highest value, and mostly independent of the companion.
-S-25 (pin SHAs — *before* any conversation is stored) → S-23 (format) → S-26 (redaction) →
-S-27 (store) → S-24 (adapters) → S-28 (fidelity) → S-32 (resume UI)
+**Skills** — S-11 (manifest) → S-12 (tool allowlist) → S-13 (agent loop) → S-14 (API).
 
-**Tier 2 — routing on real numbers.** Needs S-27 first: the ledger derives from the
-conversation archive, so allocation can't work before persistence exists.
-S-22 (Loom rates) → S-04 (registry) → S-05 → S-06 → S-07 → S-08 →
-S-33 (chain) → S-34 (ledger) → S-09 (wire it up) → S-35 (settings UI)
+**Local models** — S-10 (adapter) → S-17 (control API). Both now trivial: no proxy hop.
 
-**Tier 3 — provisioning**
-S-29 (engine) → S-30 (creation) → S-31 (projects page) → S-18/S-19 as needed
+**UI** — S-06 (model picker), S-35 (routing & budget settings).
 
-**Tier 4 — skills, then local models**
-S-11 → S-12 → S-13 → S-14 · then S-15 → S-17 → S-10
+**Loose ends** — S-03 (middleware audit), S-22 (Loom cost seeding).
 
 ### Two ordering constraints that are not negotiable
 
@@ -137,16 +129,16 @@ S-11 → S-12 → S-13 → S-14 · then S-15 → S-17 → S-10
 2. **S-26 before S-27.** A secret committed to git history means rotating the key and
    possibly rewriting a repo that may already be cloned. No retroactive fix exists.
 
-## Open questions blocking work
+## Open questions
 
 | Question | Blocks | Recommendation |
 |---|---|---|
-| How does Vercel-hosted IDEA reach a `127.0.0.1` companion? | S-10, S-17, S-29, S-30, S-31 | Decide in S-16. Browser-mediated is likeliest. |
 | Is `loom-template` marked as a GitHub template repo? | S-30 | Check before designing the seed flow. |
 | Is Loom's bootstrap non-interactive? | S-30 | FR-8.2 requires unattended. Read `loom-template/scripts/` first. |
 | Does a capability shortfall escalate outside the user's chain? | S-33 | Probably yes — a cost-descending chain is the wrong order for escalation. Write the rule down. |
-| Derive spend per turn, or maintain a roll-up? | S-34 | Roll-up written on each turn, rebuildable from the archive. |
+| ~~How does Vercel-hosted IDEA reach a `127.0.0.1` companion?~~ | — | **Resolved** — it doesn't. IDEA runs locally; the companion is deleted. See `08`. |
 | ~~Where does session budget spend live?~~ | — | **Resolved** — derived from the conversation archive (AD-7). See S-34. |
+| ~~Derive spend per turn, or maintain a roll-up?~~ | — | **Resolved** — a local ledger file is now trivial; the archive stays the source of truth. |
 
 ## Phase 3 — out of scope
 
