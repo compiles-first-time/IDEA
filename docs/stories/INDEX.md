@@ -28,19 +28,19 @@ to one, it's scope creep — write a new story or an exception first.
 
 | ID | Story | Component | Status |
 |---|---|---|---|
-| [S-04](S-04-model-registry.md) | Model registry | C-11 | Not started |
-| [S-05](S-05-models-api.md) | Models API | C-14 | Not started |
+| [S-04](S-04-model-registry.md) | Model registry | C-11 | ✅ **Done** |
+| [S-05](S-05-models-api.md) | Models API | C-14 | ✅ **Done** |
 | [S-06](S-06-model-picker-ui.md) | Model picker UI | C-9 | Not started |
 
 ## Workstream 2 — Deterministic router
 
 | ID | Story | Component | Status |
 |---|---|---|---|
-| [S-07](S-07-cost-and-budget.md) | Cost math & pre-flight estimates | C-13 | Not started |
-| [S-08](S-08-complexity-router.md) | Complexity scorer & model selector | C-12 | Not started |
-| [S-33](S-33-fallback-chain.md) | User-ordered fallback chain | C-34 | Not started |
+| [S-07](S-07-cost-and-budget.md) | Cost math & pre-flight estimates | C-13 | ✅ **Done** |
+| [S-08](S-08-complexity-router.md) | Complexity scorer & model selector | C-12 | ✅ **Done** |
+| [S-33](S-33-fallback-chain.md) | User-ordered fallback chain | C-34 | ✅ **Done** |
 | [S-34](S-34-spend-ledger-and-allocation.md) | Spend ledger & financial allocation | C-35 | Not started |
-| [S-09](S-09-chat-route-routing.md) | Chat route: mode, model, RoutingDecision, fallback | C-8 | Not started |
+| [S-09](S-09-chat-route-routing.md) | Chat route: mode, model, RoutingDecision, fallback | C-8 | ✅ **Done** |
 | [S-35](S-35-routing-settings-ui.md) | Routing & budget settings UI | C-36 | Not started |
 
 ## Workstream 3 — Provider adapters
@@ -62,7 +62,7 @@ to one, it's scope creep — write a new story or an exception first.
 
 | ID | Story | Component | Status |
 |---|---|---|---|
-| [S-15](S-15-fit-recommender.md) | Fit recommender | C-20 | Not started |
+| [S-15](S-15-fit-recommender.md) | Fit recommender | C-20 | ✅ **Done** |
 | [S-17](S-17-local-control-api.md) | Local control API (proxy) | C-19 | Not started |
 
 ## Workstream 6 — Loom cost seeding
@@ -79,10 +79,10 @@ to one, it's scope creep — write a new story or an exception first.
 
 | ID | Story | Component | Status |
 |---|---|---|---|
-| [S-23](S-23-canonical-conversation-format.md) | Canonical conversation format | C-25 | Not started |
-| [S-24](S-24-provider-render-adapters.md) | Provider render adapters & conformance | C-26 | Not started |
-| [S-25](S-25-repo-context-sha-pinning.md) | Repo context SHA pinning | C-7/C-8 | Not started |
-| [S-26](S-26-secret-redaction.md) | Secret redaction before persistence | C-28 | Not started — **gates S-27** |
+| [S-23](S-23-canonical-conversation-format.md) | Canonical conversation format | C-25 | ✅ **Done** |
+| [S-24](S-24-provider-render-adapters.md) | Provider render adapters & conformance | C-26 | ✅ **Done** |
+| [S-25](S-25-repo-context-sha-pinning.md) | Repo context SHA pinning | C-7/C-8 | ✅ **Done** |
+| [S-26](S-26-secret-redaction.md) | Secret redaction before persistence | C-28 | ✅ **Done** — gates S-27 |
 | [S-27](S-27-conversation-store.md) | Conversation store (GitHub API) | C-27 | Not started |
 | [S-28](S-28-compaction-and-fidelity.md) | Compaction & fidelity reporting | C-29 | Not started |
 | [S-32](S-32-conversation-resume-ui.md) | Conversation resume UI | C-32 | Not started |

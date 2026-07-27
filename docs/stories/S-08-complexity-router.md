@@ -1,6 +1,6 @@
 # S-08 — Complexity scorer & model selector
 
-**Phase:** 2 · **Workstream:** 2 Router · **Status:** Not started
+**Phase:** 2 · **Workstream:** 2 Router · **Status:** ✅ **Done** (2026-07-26)
 **Component:** C-12 · **Traces to:** FR-4.2, FR-4.3, FR-4.4, E-4.a, AD-3, NFR-1, NFR-5
 **Depends on:** S-04, S-07 · **Blocks:** S-09
 

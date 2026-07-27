@@ -1,6 +1,6 @@
 # S-23 — Canonical conversation format
 
-**Phase:** 2 · **Workstream:** 7 Conversations · **Status:** Not started
+**Phase:** 2 · **Workstream:** 7 Conversations · **Status:** ✅ **Done** (2026-07-26)
 **Component:** C-25 · **Traces to:** FR-9.3, FR-9.4, AD-6, AD-7, NFR-1, NFR-3
 **Depends on:** S-02 · **Blocks:** S-24, S-27, S-28, S-32
 

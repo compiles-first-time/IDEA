@@ -1,6 +1,6 @@
 # S-07 — Cost math & budget cap
 
-**Phase:** 2 · **Workstream:** 2 Router · **Status:** Not started
+**Phase:** 2 · **Workstream:** 2 Router · **Status:** ✅ **Done** (2026-07-26)
 **Component:** C-13 · **Traces to:** FR-4.3, FR-4.5, E-4.b, NFR-1, NFR-4
 **Depends on:** S-04, S-02 · **Blocks:** S-08
 

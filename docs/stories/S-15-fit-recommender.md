@@ -1,6 +1,6 @@
 # S-15 — Fit recommender
 
-**Phase:** 2 · **Workstream:** 5 Local models · **Status:** Not started
+**Phase:** 2 · **Workstream:** 5 Local models · **Status:** ✅ **Done** (2026-07-26)
 **Component:** C-20 · **Traces to:** FR-6.4, E-6.b, NFR-1
 **Depends on:** S-02 · **Blocks:** S-17
 

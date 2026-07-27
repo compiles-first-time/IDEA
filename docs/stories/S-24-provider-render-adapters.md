@@ -1,6 +1,6 @@
 # S-24 — Provider render adapters & conformance suite
 
-**Phase:** 2 · **Workstream:** 7 Conversations · **Status:** Not started
+**Phase:** 2 · **Workstream:** 7 Conversations · **Status:** ✅ **Done** (2026-07-26)
 **Component:** C-26 · **Traces to:** FR-9.5, AD-2, AD-6, NFR-1, NFR-3
 **Depends on:** S-23 · **Blocks:** S-32
 

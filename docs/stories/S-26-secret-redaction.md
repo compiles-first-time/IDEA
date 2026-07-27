@@ -1,6 +1,6 @@
 # S-26 — Secret redaction before persistence
 
-**Phase:** 2 · **Workstream:** 7 Conversations · **Status:** Not started
+**Phase:** 2 · **Workstream:** 7 Conversations · **Status:** ✅ **Done** (2026-07-26)
 **Component:** C-28 · **Traces to:** E-9.c, NFR-4, NFR-6
 **Depends on:** S-02 · **Blocks:** S-27 — **hard blocker, not a nice-to-have**
 

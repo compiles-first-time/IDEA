@@ -1,6 +1,6 @@
 # S-04 — Model registry
 
-**Phase:** 2 · **Workstream:** 1 Registry & picker · **Status:** Not started
+**Phase:** 2 · **Workstream:** 1 Registry & picker · **Status:** ✅ **Done** (2026-07-26)
 **Component:** C-11 · **Traces to:** FR-4.1, FR-4.3, AD-4, NFR-3
 **Depends on:** S-02 · **Blocks:** S-05, S-07, S-08, S-10
 

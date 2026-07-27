@@ -1,6 +1,6 @@
 # S-05 — Models API
 
-**Phase:** 2 · **Workstream:** 1 Registry & picker · **Status:** Not started
+**Phase:** 2 · **Workstream:** 1 Registry & picker · **Status:** ✅ **Done** (2026-07-26)
 **Component:** C-14 · **Traces to:** FR-4.1
 **Depends on:** S-04 · **Blocks:** S-06
 

@@ -1,6 +1,6 @@
 # S-09 — Chat route: mode, model, RoutingDecision
 
-**Phase:** 2 · **Workstream:** 2 Router · **Status:** Not started
+**Phase:** 2 · **Workstream:** 2 Router · **Status:** ✅ **Done** (2026-07-26)
 **Component:** C-8 (extend `app/api/chat/route.ts`) · **Traces to:** FR-4.1, FR-4.2, FR-4.4, NFR-5
 **Depends on:** S-08 · **Blocks:** nothing (completes the routing workstream)
 

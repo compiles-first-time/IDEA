@@ -1,6 +1,6 @@
 # S-33 — User-ordered fallback chain
 
-**Phase:** 2 · **Workstream:** 2 Router · **Status:** Not started
+**Phase:** 2 · **Workstream:** 2 Router · **Status:** ✅ **Done** (2026-07-26)
 **Component:** C-34 · **Traces to:** FR-4.6, FR-4.7, FR-4.8, FR-4.11, E-4.c, E-4.d, E-4.e, NFR-1
 **Depends on:** S-04, S-08 · **Blocks:** S-35
 

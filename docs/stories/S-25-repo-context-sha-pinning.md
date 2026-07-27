@@ -1,6 +1,6 @@
 # S-25 — Repo context SHA pinning
 
-**Phase:** 2 · **Workstream:** 7 Conversations · **Status:** Not started
+**Phase:** 2 · **Workstream:** 7 Conversations · **Status:** ✅ **Done** (2026-07-26)
 **Component:** amends C-7 (`/api/repos/file`) and C-8 (`/api/chat`) · **Traces to:** FR-9.4, FR-2.3, FR-2.4
 **Depends on:** nothing · **Blocks:** S-27 (needed for a faithful archive)
 
