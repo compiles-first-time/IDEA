@@ -55,7 +55,7 @@ to one, it's scope creep — write a new story or an exception first.
 | ID | Story | Component | Status |
 |---|---|---|---|
 | [S-11](S-11-skill-manifest-parser.md) | Skill manifest parser | C-16 | Not started |
-| [S-12](S-12-tool-allowlist.md) | Tool allowlist & tool registry | C-18 | Not started |
+| [S-12](S-12-tool-allowlist.md) | Tool allowlist & tool registry | C-18 | ✅ **Done** |
 | [S-13](S-13-agent-loop.md) | Provider-agnostic agent loop | C-17 | Not started |
 | [S-14](S-14-skills-api.md) | Skills API | C-18 | Not started |
 

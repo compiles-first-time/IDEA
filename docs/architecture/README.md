@@ -66,3 +66,17 @@ entirely and lifts three constraints — `E-2.a` (no local clone), `NFR-2`
 (serverless-safe), and the `AD-1` control/data plane split.
 
 **Precedence, newest first:** `08` → `07` → `00`–`06`.
+
+## Update: agent authority (2026-07-27)
+
+**[09-agent-authority.md](09-agent-authority.md) supersedes E-5.a and narrows GE-4 again.**
+
+Agents can run commands and write code. IDEA adopts Loom's LR-04 permission
+classification and Kernel Rule 20 (reversible → auto; destructive → confirm) rather than
+inventing its own scheme. Scope is per-project; `loom-template` and IDEA's own source are
+never agent-writable.
+
+**Precedence, newest first:** `09` → `08` → `07` → `00`–`06`.
+
+> ⚠️ `09` §5 flags a blocker: `loom-template/constitution/kernel-v6.md` is still a
+> placeholder. The design leans on the kernel as its primary behavioral layer.

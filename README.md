@@ -79,5 +79,5 @@ npm run lint
 ## Documentation
 
 - [`docs/architecture/`](docs/architecture/README.md) — design of record.
-  Precedence: **`08` beats `07` beats `00`–`06`.**
+  Precedence: **`09` → `08` → `07` → `00`–`06`.**
 - [`docs/stories/INDEX.md`](docs/stories/INDEX.md) — the backlog and what's built.
