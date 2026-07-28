@@ -143,7 +143,36 @@ The four closed ones are recorded rather than deleted, because the reasoning mat
 | ~~Where does session budget spend live?~~ | — | **Resolved** — derived from the conversation archive (AD-7). See S-34. |
 | ~~Derive spend per turn, or maintain a roll-up?~~ | — | **Resolved** — a local ledger file is now trivial; the archive stays the source of truth. |
 
-## Phase 3 — out of scope
+## Phase 3 — provenance & requirements *(designed, not started)*
+
+Traces to [`11-provenance-and-requirements.md`](../architecture/11-provenance-and-requirements.md).
+Measured against 10,015 real events in the local Loom projects — see the doc for
+what the data does and does not support.
+
+| ID | Story | Needs Loom changes? | Status |
+|---|---|---|---|
+| [S-39](S-39-recover-dropped-events.md) | Stop dropping 244 real events (recovers `LR-04` / `ADR-0047`) | **No** | Not started |
+| [S-40](S-40-derived-cost-per-node.md) | Cost per node, derived from tokens | **No** | Not started |
+| [S-41](S-41-provenance-graph.md) | The provenance graph | **No** (degrades) | Not started |
+| [S-42](S-42-requirements-ledger.md) | Requirements, exceptions, technical deps | No — new repo artifact | Not started |
+| [S-43](S-43-requirements-to-test-cases.md) | Requirements → test cases | No | Not started |
+
+**S-39 first.** It is the cheapest and it recovers rule/ADR attribution IDEA is
+already receiving and discarding.
+
+### Blocked on upstream (`loom-template`, which agents may never write — E-11.a)
+
+| Want | Needs Loom to emit | Measured today |
+|---|---|---|
+| Agent → skill map | `skill_invoked` | `skill` field: **0 occurrences** |
+| Agent → agent edges | `parent_agent` | `parent_agent`: **0 occurrences** |
+| Per-call cost | tokens on `tool_call` | only per-session tokens exist |
+| Model vs deterministic | `execution_kind` | nothing marks it |
+
+These are asks a human makes in that repo. IDEA ships the reader and shows "not
+recorded" until the writer exists.
+
+## Phase 3 — still out of scope
 
 Skill marketplace, multi-project orchestration, budget analytics dashboards, IDEA
 emitting telemetry back to the Observatory. *(Chat persistence graduated into Phase 2.)*
