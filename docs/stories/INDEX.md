@@ -156,7 +156,7 @@ what the data does and does not support.
 | [S-41](S-41-provenance-graph.md) | The provenance graph | **No** (degrades) | Not started |
 | [S-42](S-42-requirements-ledger.md) | Requirements, exceptions, technical deps | No — new repo artifact | Not started |
 | [S-43](S-43-requirements-to-test-cases.md) | Requirements → test cases | No | Not started |
-| [S-44](S-44-requirements-analyst-agent.md) | Requirements elicitation — use Loom’s existing ADRs | Deferred by ADR-0046 §5 | Blocked by design |
+| [S-44](S-44-requirements-analyst-agent.md) | Requirements elicitation — use Loom’s existing ADRs | ADR-0046 §5 gate **met** (9 registers) | Ready — harvest first |
 
 **S-39 first.** It is the cheapest and it recovers rule/ADR attribution IDEA is
 already receiving and discarding.

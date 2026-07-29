@@ -22,16 +22,28 @@ this is already decided, and the research in Loom contradicts parts of it.**
 | Keeping inputs current | ADR-0020 runtime discovery, ADR-0025/0026 discovery + gate | Accepted |
 | Adversarial review of requirements | `critic` agent, ADR-0026 | Exists |
 
-## The author agent is deferred, on purpose
+## The deferral gate — checked, and already met
 
-ADR-0046 §5: a dedicated requirements/test-case author agent is **explicitly
-deferred** — *"skill now, agent later (build once the pattern is proven on 2–3
-requirements — architect's decision, 2026-07-05)."*
+ADR-0046 §5 deferred a requirements author agent: *"skill now, agent later (build
+once the pattern is proven on 2–3 requirements — architect's decision,
+2026-07-05)."*
 
-The `/testcase` skill comes first. Shipping the agent now would override a
-decision the architect already made with a stated reason. The drafted skill at
-`loom-template/agents/requirements-analyst/SKILL.md` stays a draft until 2–3
-requirements have been authored through `/testcase` and the pattern holds.
+Checked on 2026-07-28. **Both halves already exist:**
+
+- `.claude/commands/testcase.md` — the skill, complete, with executable
+  `*.cases.mjs` + `emitTestCase()` wiring into the Observatory.
+- **Nine** registers authored through it: `BR_01`, `BR_06`–`BR_13` — covering
+  destructive-action confirmation, reputation projection, the deliberation panel,
+  the discovery-authored doctor check, cold-start bootstrap, the lessons service,
+  verifier→reputation, governed decisions, and the efficacy harness.
+
+Three times the stated bar. **The gate is satisfied; the agent is unblocked.**
+
+The remaining step is not a prerequisite but a discipline: **harvest the nine
+before writing the agent.** The gate existed so the pattern would be learned from
+real use. An agent authored from the format alone throws away exactly what the
+waiting was for — read where rows got revised and which exceptions were missed on
+first pass, and encode *that*.
 
 ## Why a debating trio is the wrong instrument
 
