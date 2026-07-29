@@ -154,7 +154,12 @@ test("the not-found error lists what is available", async (t) => {
 /* -------------------------------------------------------------------------- */
 
 test("the registry is small and enumerable", () => {
-  assert.deepEqual([...TOOL_NAMES].sort(), ["bash", "list_files", "read_file", "write_file"]);
+  // Pinned on purpose: adding a tool widens what an agent can do, so it should
+  // fail here and be updated deliberately rather than slipping in unnoticed.
+  assert.deepEqual(
+    [...TOOL_NAMES].sort(),
+    ["bash", "list_files", "read_file", "search_files", "write_file"],
+  );
 });
 
 test("unknownTools names what a build cannot provide", () => {
