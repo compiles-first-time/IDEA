@@ -1,10 +1,13 @@
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { z } from "zod";
 
 import { FallbackTrigger, Tier, tierRank, type FallbackEvent } from "@/lib/contracts/routing";
 import { estimateCostUsd } from "@/lib/cost";
 import type { ModelOrder } from "@/lib/router";
 import type { ModelRecord } from "@/lib/registry";
-import routingJson from "@/config/routing.json";
+import routingDefaults from "@/config/routing.default.json";
 
 /**
  * User-ordered fallback chain (S-33, FR-4.6/4.7/4.8).
@@ -72,12 +75,42 @@ export function parseRoutingConfig(raw: unknown): RoutingConfig {
 let cachedConfig: RoutingConfig | null = null;
 
 /**
- * The bundled routing config. A default chain ships with the product so the
- * feature works before anyone opens the settings UI.
+ * The chain IDEA ships with, before the user changes anything.
+ *
+ * Kept separate from `loadRoutingConfig()` because the two answer different
+ * questions: this is a property of the product, that is a property of *this
+ * machine*. Conflating them made a test assert the user's saved preference.
+ */
+export function defaultRoutingConfig(): RoutingConfig {
+  return parseRoutingConfig(routingDefaults);
+}
+
+/**
+ * The chain in effect on this machine.
+ *
+ * Read from disk on each call, not from the build-time import. `config/routing.json`
+ * is written at runtime by the settings route, and a statically imported copy is
+ * frozen when the bundle is built — so in a production build the user could save
+ * a new chain, see the file change, and have the running app keep using the old
+ * one until the next rebuild. Saved settings that quietly do not apply are worse
+ * than settings that fail to save.
+ *
+ * The bundled default is the fallback when the file is missing or unreadable, so
+ * routing still works out of the box and a corrupt file cannot break startup.
  */
 export function loadRoutingConfig(): RoutingConfig {
-  cachedConfig ??= parseRoutingConfig(routingJson);
-  return cachedConfig;
+  if (cachedConfig) return cachedConfig;
+
+  const path = join(process.cwd(), "config", "routing.json");
+  if (existsSync(path)) {
+    try {
+      return parseRoutingConfig(JSON.parse(readFileSync(path, "utf8")));
+    } catch {
+      // A hand-edited file with a typo falls back to the shipped default rather
+      // than taking routing down.
+    }
+  }
+  return defaultRoutingConfig();
 }
 
 /** Test seam. */

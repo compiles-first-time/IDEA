@@ -41,3 +41,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 projects/
+
+# User settings written at runtime — the shipped defaults are *.default.json
+config/routing.json
+config/allocation.json
+config/projects.json

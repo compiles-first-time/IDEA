@@ -35,7 +35,34 @@ export interface ObservatoryState {
   compliance: {
     destructiveOps: Array<{ at: string | null; detail: string }>;
     constitutionChecksMissing: number;
+    byRule: Record<
+      string,
+      {
+        count: number;
+        decisions: Array<{
+          at: string | null;
+          eventType: string;
+          decision: string | null;
+          detail: string | null;
+        }>;
+      }
+    >;
+    attempts: Array<{
+      at: string | null;
+      eventType: string;
+      rule: string | null;
+      decision: string | null;
+      detail: string | null;
+    }>;
   };
+  claims: Array<{
+    at: string | null;
+    agent: string | null;
+    claim: string | null;
+    confidence: string | null;
+    sources: number;
+    whatWouldRaise: string | null;
+  }>;
   agents: { spawned: string[]; retired: string[] };
   deploys: { history: Array<{ at: string | null; status: string; detail: string }> };
   testing: { lastRun: string | null; passed: number; failed: number };
@@ -176,6 +203,107 @@ function useLiveState(initial: ObservatoryState) {
   return { state, connection, lastUpdate };
 }
 
+/**
+ * Which rule governed which decision — and the reverse (FR-13.4).
+ *
+ * This data was always being emitted; IDEA discarded it because the events
+ * carrying it were not in the known-type list. Every `LR-*` / `ADR-*` here is a
+ * real governance decision, recovered rather than invented.
+ */
+function RuleTrace({ compliance }: { compliance: ObservatoryState["compliance"] }) {
+  const rules = Object.entries(compliance.byRule).sort((a, b) => b[1].count - a[1].count);
+  const ungoverned = compliance.attempts.filter((a) => !a.rule);
+
+  if (rules.length === 0 && ungoverned.length === 0) return null;
+
+  return (
+    <Panel title="Governance — rules applied">
+      {rules.length > 0 && (
+        <ul className="space-y-2">
+          {rules.map(([rule, entry]) => (
+            <li key={rule} className="rounded border border-neutral-800 p-2">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="font-mono text-sm text-sky-300">{rule}</span>
+                <span className="text-xs text-neutral-500">
+                  {entry.count} decision{entry.count === 1 ? "" : "s"}
+                </span>
+              </div>
+              <ul className="mt-1 space-y-0.5">
+                {entry.decisions.slice(-4).map((d, i) => (
+                  <li key={i} className="flex justify-between gap-3 text-xs text-neutral-400">
+                    <span className="truncate">
+                      {d.eventType.replace(/_/g, " ")}
+                      {d.decision && <span className="text-neutral-200"> → {d.decision}</span>}
+                      {d.detail && <span className="ml-1 font-mono text-neutral-500">{d.detail}</span>}
+                    </span>
+                    <span className="shrink-0 text-neutral-600">{when(d.at)}</span>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {ungoverned.length > 0 && (
+        // An action that cited no rule is the more alarming case, not the less.
+        <p className="mt-2 rounded border border-amber-800 bg-amber-950 px-2 py-1 text-xs text-amber-200">
+          {ungoverned.length} permission attempt{ungoverned.length === 1 ? "" : "s"} cited no rule.
+        </p>
+      )}
+    </Panel>
+  );
+}
+
+/**
+ * Claims — the only place agent identity appears in the log today.
+ *
+ * A low-confidence claim with no sources is precisely what a reviewer wants
+ * surfaced, so sources are shown even (especially) when the count is zero.
+ */
+function ClaimsPanel({ claims }: { claims: ObservatoryState["claims"] }) {
+  if (claims.length === 0) return null;
+
+  return (
+    <Panel title="Claims">
+      <ul className="space-y-2">
+        {claims.slice(-8).reverse().map((c, i) => (
+          <li key={i} className="rounded border border-neutral-800 p-2 text-sm">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-neutral-200">
+                {c.agent && <span className="font-mono text-xs text-violet-300">{c.agent} </span>}
+                {c.claim ?? "—"}
+              </span>
+              <span className="shrink-0 text-xs text-neutral-500">{when(c.at)}</span>
+            </div>
+            <div className="mt-1 flex flex-wrap gap-2 text-xs">
+              {c.confidence && (
+                <span className="rounded bg-neutral-800 px-1.5 py-0.5 text-neutral-300">
+                  confidence: {c.confidence}
+                </span>
+              )}
+              <span
+                className={
+                  c.sources === 0
+                    ? "rounded bg-amber-950 px-1.5 py-0.5 text-amber-300"
+                    : "rounded bg-neutral-800 px-1.5 py-0.5 text-neutral-400"
+                }
+              >
+                {c.sources} source{c.sources === 1 ? "" : "s"}
+              </span>
+            </div>
+            {c.whatWouldRaise && (
+              <p className="mt-1 text-xs text-neutral-500">
+                would raise to 95%: {c.whatWouldRaise}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
+}
+
 export function ObservatoryView({ initial }: { initial: ObservatoryState }) {
   const { state, connection, lastUpdate } = useLiveState(initial);
   const unknown = Object.entries(state.unknownEventTypes);
@@ -233,6 +361,11 @@ export function ObservatoryView({ initial }: { initial: ObservatoryState }) {
           </ul>
         </Panel>
       )}
+
+      {/* Traceability: which rule governed which decision (FR-13.4). */}
+      <RuleTrace compliance={state.compliance} />
+
+      <ClaimsPanel claims={state.claims} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Panel title="Sessions">

@@ -48,6 +48,38 @@ export const KNOWN_EVENT_TYPES = [
   "subagent_suggestion",
   "oauth_preference_hint",
   "lessons_autosuggest",
+  // S-39: eleven types Loom actually emits that were being dropped into
+  // `unknownEventTypes` and rendered nowhere. Every event carrying a `rule`
+  // field was in this set, so all rule and ADR attribution was being received
+  // and discarded.
+  "claim",
+  "runtime_discovery_run",
+  "destructive_actions_attempted",
+  "destructive_action_decision",
+  "production_mutation_attempted",
+  "browser_credential_automation_attempted",
+  "external_service_setup_attempted",
+  "credentials_attempted",
+  "observatory_auto_started",
+  "auto_bootstrap_attempted",
+  "auto_bootstrap_result",
+] as const;
+
+/**
+ * Permission-attempt events, all of which carry a `rule`.
+ *
+ * These are the governance record: what an agent tried, which rule governed it,
+ * and what was decided. They belong together in the compliance view rather than
+ * scattered by event name.
+ */
+export const PERMISSION_EVENT_TYPES = [
+  "destructive_actions_attempted",
+  "destructive_action_decision",
+  "production_mutation_attempted",
+  "browser_credential_automation_attempted",
+  "external_service_setup_attempted",
+  "credentials_attempted",
+  "constitution_check_missing",
 ] as const;
 
 export type KnownEventType = (typeof KNOWN_EVENT_TYPES)[number];
@@ -100,7 +132,43 @@ export interface ObservatoryState {
   compliance: {
     destructiveOps: Array<{ at: string | null; detail: string }>;
     constitutionChecksMissing: number;
+    /**
+     * FR-13.4 — which rule governed which decision, both directions.
+     * Keyed by rule id (`LR-04`, `ADR-0047`, kernel rule).
+     */
+    byRule: Record<
+      string,
+      {
+        count: number;
+        decisions: Array<{
+          at: string | null;
+          eventType: string;
+          decision: string | null;
+          detail: string | null;
+        }>;
+      }
+    >;
+    /** Every permission attempt, newest last, whatever rule it cited. */
+    attempts: Array<{
+      at: string | null;
+      eventType: string;
+      rule: string | null;
+      decision: string | null;
+      detail: string | null;
+    }>;
   };
+  /**
+   * Claim events — the only place agent identity appears in the log today.
+   * A low-confidence claim with no sources is what a reviewer wants to see.
+   */
+  claims: Array<{
+    at: string | null;
+    agent: string | null;
+    claim: string | null;
+    confidence: string | null;
+    sources: number;
+    whatWouldRaise: string | null;
+  }>;
   agents: { spawned: string[]; retired: string[] };
   deploys: { history: Array<{ at: string | null; status: string; detail: string }> };
   testing: { lastRun: string | null; passed: number; failed: number };
@@ -123,7 +191,8 @@ function emptyState(project: string): ObservatoryState {
     sessions: { active: [], history: [] },
     cost: { inputTokens: 0, outputTokens: 0, estimatedUsd: 0, bySession: {} },
     failures: { errors: [], signatures: {} },
-    compliance: { destructiveOps: [], constitutionChecksMissing: 0 },
+    compliance: { destructiveOps: [], constitutionChecksMissing: 0, byRule: {}, attempts: [] },
+    claims: [],
     agents: { spawned: [], retired: [] },
     deploys: { history: [] },
     testing: { lastRun: null, passed: 0, failed: 0 },
@@ -149,6 +218,43 @@ function num(v: unknown): number {
 function sessionFor(state: ObservatoryState, id: string | null): SessionSummary | undefined {
   if (!id) return undefined;
   return state.sessions.active.find((s) => s.sessionId === id);
+}
+
+/** Keep the newest claims; a long-running project would otherwise grow the state. */
+const MAX_CLAIMS = 100;
+/** Same bound for the permission ledger. */
+const MAX_ATTEMPTS = 200;
+
+/**
+ * Fold one permission-attempt event into the compliance record (FR-13.4).
+ *
+ * Indexes by rule so the view works in both directions: a decision links to the
+ * rule that governed it, and a rule lists every decision it governed. An event
+ * with no rule is still recorded — dropping it would hide an ungoverned action,
+ * which is the more alarming case, not the less.
+ */
+function recordPermissionAttempt(
+  state: ObservatoryState,
+  eventType: string,
+  event: LoomEvent,
+  at: string | null,
+): { rule: string | null; decision: string | null; detail: string | null } {
+  const rule = str(event.rule);
+  const decision = str(event.decision) ?? str(event.outcome) ?? str(event.result);
+  const detail =
+    str(event.command) ?? str(event.detail) ?? str(event.tool) ?? str(event.reason);
+
+  state.compliance.attempts.push({ at, eventType, rule, decision, detail });
+  if (state.compliance.attempts.length > MAX_ATTEMPTS) state.compliance.attempts.shift();
+
+  if (rule) {
+    const bucket = (state.compliance.byRule[rule] ??= { count: 0, decisions: [] });
+    bucket.count += 1;
+    bucket.decisions.push({ at, eventType, decision, detail });
+    if (bucket.decisions.length > 25) bucket.decisions.shift();
+  }
+
+  return { rule, decision, detail };
 }
 
 function note(state: ObservatoryState, kind: string, detail: string, at: string | null) {
@@ -250,8 +356,62 @@ export function applyEvent(state: ObservatoryState, event: LoomEvent): void {
 
     case "constitution_check_missing":
       state.compliance.constitutionChecksMissing += 1;
+      recordPermissionAttempt(state, type, event, at);
       note(state, "compliance", "production mutation without a constitution check", at);
       break;
+
+    // S-39 — the permission-attempt family. These carry the `rule` field, which
+    // is the whole governance record: what was tried and what governed it.
+    case "destructive_actions_attempted":
+    case "destructive_action_decision":
+    case "production_mutation_attempted":
+    case "browser_credential_automation_attempted":
+    case "external_service_setup_attempted":
+    case "credentials_attempted": {
+      const { rule, decision, detail } = recordPermissionAttempt(state, type, event, at);
+      const label = type.replace(/_/g, " ");
+      note(
+        state,
+        "compliance",
+        [label, rule && `(${rule})`, decision && `→ ${decision}`, detail]
+          .filter(Boolean)
+          .join(" "),
+        at,
+      );
+      break;
+    }
+
+    case "claim": {
+      const sources = Array.isArray(event.sources)
+        ? event.sources.length
+        : event.source !== undefined
+          ? 1
+          : 0;
+      state.claims.push({
+        at,
+        agent: str(event.agent),
+        claim: str(event.claim),
+        confidence: str(event.confidence),
+        sources,
+        whatWouldRaise: str(event.what_would_raise_to_95),
+      });
+      if (state.claims.length > MAX_CLAIMS) state.claims.shift();
+      const who = str(event.agent) ?? "an agent";
+      note(state, "claim", `${who}: ${str(event.claim) ?? "claim"}`, at);
+      break;
+    }
+
+    case "runtime_discovery_run":
+      note(state, "discovery", "runtime discovery ran", at);
+      break;
+
+    case "observatory_auto_started":
+    case "auto_bootstrap_attempted":
+    case "auto_bootstrap_result": {
+      const detail = str(event.result) ?? str(event.status) ?? str(event.detail);
+      note(state, "bootstrap", [type.replace(/_/g, " "), detail].filter(Boolean).join(": "), at);
+      break;
+    }
 
     case "specialist_spawned": {
       const name = str(event.specialist) ?? str(event.name);

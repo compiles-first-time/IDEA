@@ -233,21 +233,21 @@ test("a healthy chain reports nothing unreachable", () => {
 /* -------------------------------------------------------------------------- */
 
 test("a default chain ships with the product and every entry is reachable", async () => {
-  const { loadRoutingConfig } = await import("@/lib/fallback");
+  const { defaultRoutingConfig } = await import("@/lib/fallback");
   const { enabledModels } = await import("@/lib/registry");
 
-  const config = loadRoutingConfig();
+  const config = defaultRoutingConfig();
   const chain = chainFor(config);
   assert.ok(chain, "a global chain should ship by default so routing works out of the box");
   assert.deepEqual(unreachableEntries(chain, enabledModels()), []);
 });
 
 test("the default chain is ordered cheapest-first across tiers", async () => {
-  const { loadRoutingConfig } = await import("@/lib/fallback");
+  const { defaultRoutingConfig } = await import("@/lib/fallback");
   const { getModel } = await import("@/lib/registry");
   const { tierRank } = await import("@/lib/contracts/routing");
 
-  const entries = chainFor(loadRoutingConfig())!.entries;
+  const entries = chainFor(defaultRoutingConfig())!.entries;
   const ranks = entries.map((e) => tierRank(getModel(e.modelId)!.tier));
   assert.deepEqual([...ranks].sort((a, b) => a - b), ranks, "expected ascending capability");
 });
