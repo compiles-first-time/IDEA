@@ -1,83 +1,105 @@
-# S-44 — The requirements analyst agent (in Loom)
+# S-44 — Requirements elicitation: use what Loom already decided
 
-**Phase:** 3 · **Workstream:** 10 Requirements · **Status:** Drafted, not installed
-**Component:** Loom core agent · **Traces to:** FR-14.1–14.4, E-13.c, E-13.d
+**Phase:** 3 · **Workstream:** 10 Requirements · **Status:** Blocked by design (see below)
+**Component:** Loom core agent · **Traces to:** FR-14.1–14.4, E-13.d
 **Depends on:** S-42 · **Blocks:** nothing
 
-## Goal
+## What changed
 
-A core Loom agent that interviews the requester until the specification is
-complete enough to build from **without guessing** — and refuses to hand over
-until it is.
+This story first proposed a new requirements-analyst agent, and a follow-up idea
+proposed a trio of agents debating until they reach resolution, refereed by HR,
+rewarded for effort. Reading Loom's ADRs before building found that **most of
+this is already decided, and the research in Loom contradicts parts of it.**
 
-Supersedes the informal S-38 sketch, which described a "requirements-gathering
-agent" before the format was known.
+## Already decided in Loom
 
-## The problem it solves
+| Idea | Already exists | Status |
+|---|---|---|
+| Requirements/exceptions register | ADR-0022 (2026-05-20), from this same spreadsheet | Accepted |
+| Requirements → exceptions → test cases | ADR-0046 (2026-07-05) | Accepted |
+| Multi-agent challenge | ADR-0056 deliberation panel (2026-07-15) | Accepted |
+| Agent reputation / reward | ADR-0053, with anti-gaming | Accepted |
+| Keeping inputs current | ADR-0020 runtime discovery, ADR-0025/0026 discovery + gate | Accepted |
+| Adversarial review of requirements | `critic` agent, ADR-0026 | Exists |
 
-An agent starting from an underspecified request does not fail loudly. It fills
-gaps with plausible assumptions, produces something that runs, and the gap
-surfaces later as a case nobody considered. The assumption is invisible
-*because* it was reasonable.
+## The author agent is deferred, on purpose
 
-## The central design decision
+ADR-0046 §5: a dedicated requirements/test-case author agent is **explicitly
+deferred** — *"skill now, agent later (build once the pattern is proven on 2–3
+requirements — architect's decision, 2026-07-05)."*
 
-**Completion is mechanical, not the agent's judgment.**
+The `/testcase` skill comes first. Shipping the agent now would override a
+decision the architect already made with a stated reason. The drafted skill at
+`loom-template/agents/requirements-analyst/SKILL.md` stays a draft until 2–3
+requirements have been authored through `/testcase` and the pattern holds.
 
-An agent asked "do you understand enough to build?" will say yes. That is a
-fluency assessment, not a coverage measurement — and it is exactly the failure
-mode this agent exists to prevent, so it cannot be the agent's own gate.
+## Why a debating trio is the wrong instrument
 
-Instead a deterministic validator passes or names what is missing, by ID:
+The proposal — two more agents challenging each other until resolution — is
+intuitive and ADR-0056 already tested it against the literature. Its findings,
+with primary sources:
 
-1. Every requirement has ≥ 1 solution.
-2. Every solution has ≥ 1 SE, and BEs were explicitly asked about (zero allowed
-   only with a recorded reason).
-3. All twelve fields non-empty on every row.
-4. Every `Next Step` resolves to a real ID or a declared terminal state.
-5. Format handoffs type-check: a step's output format matches its next step's
-   input format, or the mismatch is explained.
-6. Every named asset/credential appears in the technical-dependency list.
-7. Every human-in-the-loop step is flagged blocking.
-8. Every open question is an explicit `UNKNOWN` with a date and an owner.
+- **Voting captures most of the debate gain** (arXiv 2508.17536). Debate ≈ voting
+  in many settings, at several times the cost.
+- **Diversity is oversold by error correlation** (arXiv 2605.29800). A 9-judge,
+  7-family panel behaves like **~2.2 independent votes**. Three agents from one
+  family are worth far less than three votes.
+- **Under equal compute, single agents match multi-agent** (arXiv 2604.02460).
+  Some "multi-agent gains" are just more tokens spent.
+- Unanimity inside one error-correlation family is flagged
+  `confabulation_consensus_suspected`, its confidence **capped**, and escalated —
+  not trusted.
 
-Check 8 is what keeps this honest rather than obstructive. Real specifications
-have unresolved parts. **A marked unknown is a tracked risk; a blank is a silent
-assumption.** The validator counts markers and reports them — it never erases
-them and never fills them in.
+So a trio that argues to consensus can produce *confident agreement on a wrong
+answer*, and the agreement itself is the thing that makes it look right.
 
-This lands the "no guessing" guarantee in plain code with tests (NFR-1), not in a
-model's self-assessment.
+**Use ADR-0056's panel instead:** cheap by default, escalating to a model-diverse
+panel only on high disagreement or high stakes, one debate round maximum,
+reputation-weighted with capped weights, robust aggregation, confidence priced on
+*effective independence* rather than raw vote count.
 
-## Interview method
+## Why "reward effort" is the wrong incentive
 
-1. **Frame** — push back on any "requirement" that describes steps. Ask "why does
-   that matter?" until the answer is an outcome.
-2. **Alternatives** — name ≥ 2 ways to meet it (UI walk, direct query, API),
-   state trade-offs, record what was rejected and why.
-3. **Decompose** the chosen solution into steps with real formats.
-4. **Attack each step twice** — *what technical thing fails* (SE) and *what
-   business situation makes this wrong* (BE). Separate questions; requesters
-   answer only the first unless asked both.
-5. **Trace the graph** — walk every Next Step to a terminal state.
-6. **Validate**, report gaps by ID, repeat.
+Rewarding the agent that puts the most effort into finding a solution rewards
+**effort theater** — more tokens, longer arguments, more speculative objections.
+It is precisely the failure ADR-0056 names when it observes that some multi-agent
+gains are just more compute.
 
-## Where it lives
+ADR-0053 already solved this, and solved it better:
 
-`loom-template/agents/requirements-analyst/SKILL.md` — **drafted, uncommitted.**
+- Reputation is a **quality rate, not a total**, confidence-smoothed so a
+  low-volume agent is not out-ranked for being low-volume.
+- Opportunity is earned by **authorship** — an agent self-assesses relevance, and
+  the *accuracy* of that judgment accrues.
+- **A correct decline is credited.** An agent that correctly says "I am not needed
+  here" gains standing. Under an effort metric, declining is strictly punished —
+  which would train agents to pile into every question.
+- **Anti-gaming is explicit:** over-claiming does not accrue and may cost standing.
 
-Loom is not agent-writable (E-11.a, E-13.d). Installing this is a human action in
-that repo, and it is deliberately left for review rather than pushed.
+The instinct behind the proposal is right and is already encoded: agents invest
+because standing yields opportunity. The correction is that the reward tracks
+**being right and knowing when you are not**, not how hard you visibly tried.
+
+## Termination is mechanical, not agreement
+
+The one part of the original design that survives intact, and the reason the
+panel is a *contributor* rather than the *decider*:
+
+Agents can agree on an incomplete register. They cannot agree that a required
+field is non-empty when it is empty. So completion is decided by the checks —
+every `BR` has a solution, every solution has an `SE` and was asked about `BE`s,
+every field filled, every `Next Step` resolves, every format handoff type-checks,
+every `TR` listed, every unknown owned and dated — and the panel is what gets
+consulted when a *judgment* inside those checks is contested.
 
 ## IDEA's half
 
-IDEA reads the ledger the agent produces (S-42) and links it to test results
-(S-43). IDEA does not run the interview — that happens where the work happens.
+IDEA reads the register (S-42) and links it to `test_case` events (S-43). It does
+not run the interview and does not host the panel. Both happen in the project,
+where the work is.
 
 ## Done when
 
-- The skill is reviewed and committed to `loom-template` by a human.
-- The validator exists as tested code, not prose in the skill file.
-- A real interview produces a ledger that passes, or a gap list naming every ID.
-- A requirement written as a sequence of steps is rejected and reframed.
-- An `UNKNOWN` survives round-tripping without being silently resolved.
+- 2–3 requirements exist, authored through `/testcase`, per ADR-0046's gate.
+- The drafted skill is reviewed against what those runs actually needed.
+- Only then: a human installs it in `loom-template`.

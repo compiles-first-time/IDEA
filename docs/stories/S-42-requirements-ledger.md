@@ -1,8 +1,26 @@
-# S-42 — Requirements, exceptions, and technical dependencies
+# S-42 — Render Loom's Requirements & Exceptions register
 
 **Phase:** 3 · **Workstream:** 10 Requirements *(new)* · **Status:** Not started
 **Component:** C-41 (new) · **Traces to:** FR-14.1–14.4, E-13.c
 **Depends on:** S-30 · **Blocks:** S-43
+
+> ## Correction (2026-07-28)
+>
+> This story originally invented a YAML schema. **Loom already defines this
+> format**, twice, and IDEA must read it rather than compete with it:
+>
+> - **ADR-0022** (2026-05-20) adopted the *same spreadsheet* as Loom's canonical
+>   register format. The twelfth column is **`Justifications`**, renamed from the
+>   source's "Why" at the architect's request. I had it as `why`.
+> - **ADR-0046** (2026-07-05) promotes that static register into a live
+>   **Requirements & Exceptions Test-Case Registry** — the thing this story and
+>   S-43 were reaching for.
+>
+> What changes here: the type enum gains **`TR` (Technical Requirement)**, which
+> is where accounts, credentials, and human-in-the-loop steps live as *rows*
+> rather than as the ad-hoc `technical:` block I invented. Storage is
+> `observability/eval-suite/requirements/<BR-id>.md` plus `test_case` events —
+> not a YAML file. IDEA parses ADR-0022 tables. It defines nothing.
 
 ## Goal
 
