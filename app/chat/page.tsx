@@ -10,7 +10,7 @@ export default async function ChatPage() {
   // so every page has them instead of just this one. `min-h-0` lets the chat
   // pane scroll inside the remaining height rather than pushing the page down.
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <ChatWorkspace />
     </div>
   );

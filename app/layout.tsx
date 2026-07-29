@@ -17,9 +17,16 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
-      <body className="min-h-full flex flex-col bg-neutral-950 text-neutral-100">
+      {/*
+        Viewport-height shell, not min-height. With `min-h-full` the body grew
+        with its content, so a long file tree pushed the chat composer below the
+        fold and every message meant scrolling down to type and back up to read.
+        Fixing the shell to the viewport lets the panes inside scroll instead of
+        the page.
+      */}
+      <body className="flex h-dvh flex-col overflow-hidden bg-neutral-950 text-neutral-100">
         <Nav />
-        {children}
+        <main className="flex min-h-0 flex-1 flex-col overflow-auto">{children}</main>
       </body>
     </html>
   );

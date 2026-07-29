@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 
+import { FileTree } from "@/components/file-tree";
+
 type Repo = { full_name: string; private: boolean; default_branch: string; updated_at: string | null };
 type TreeFile = { path: string; size: number };
 
@@ -156,19 +158,12 @@ export default function ChatWorkspace() {
             />
             <div className="min-h-0 flex-1 overflow-auto">
               {treeLoading && <div className="px-3 py-2 text-sm text-neutral-500">Loading tree…</div>}
-              {shownFiles.slice(0, 800).map((f) => (
-                <button
-                  key={f.path}
-                  onClick={() => toggleAttach(f.path)}
-                  className={`block w-full truncate px-3 py-1 text-left font-mono text-xs hover:bg-neutral-900 ${
-                    attached[f.path] ? "text-emerald-400" : "text-neutral-300"
-                  }`}
-                  title={f.path}
-                >
-                  {attached[f.path] ? "✓ " : ""}
-                  {f.path}
-                </button>
-              ))}
+              <FileTree
+                files={shownFiles.slice(0, 800)}
+                attached={attached}
+                onToggle={toggleAttach}
+                filtering={fileFilter.trim().length > 0}
+              />
             </div>
           </div>
         )}
