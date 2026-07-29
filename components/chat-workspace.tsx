@@ -5,6 +5,13 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 
 import { FileTree } from "@/components/file-tree";
+import {
+  describeDecision,
+  reconcileSelection,
+  turnBody,
+  type ChatMode,
+  type PickableModel,
+} from "@/lib/chat-routing";
 
 type Repo = { full_name: string; private: boolean; default_branch: string; updated_at: string | null };
 type TreeFile = { path: string; size: number };
@@ -24,6 +31,9 @@ export default function ChatWorkspace() {
   const [project, setProject] = useState("");
   const [convos, setConvos] = useState<{ id: string; title: string; updatedAt?: string }[]>([]);
   const [convoId, setConvoId] = useState("");
+  const [models, setModels] = useState<PickableModel[]>([]);
+  const [modelId, setModelId] = useState("");
+  const [mode, setMode] = useState<ChatMode>("auto");
 
   const { messages, setMessages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
@@ -51,6 +61,21 @@ export default function ChatWorkspace() {
         setProjects(r.projects ?? []);
       } catch {
         // The picker simply stays empty; chat still works unsaved.
+      }
+    })();
+    void (async () => {
+      try {
+        const r = await fetch("/api/models").then((x) => x.json());
+        const list: PickableModel[] = r.models ?? [];
+        setModels(list);
+        // A stored selection that no longer exists would fail every turn
+        // (BR_02_BE-02); reconcile against what this build can actually reach.
+        const stored = localStorage.getItem("idea.modelId") ?? "";
+        const { modelId: next, reset } = reconcileSelection(stored, list, r.defaultId);
+        setModelId(next);
+        if (reset) setNotice(stored + " is no longer available — using " + next + ".");
+      } catch {
+        setNotice("Could not load the model list. Chat still works with the default model.");
       }
     })();
   }, []);
@@ -216,6 +241,7 @@ export default function ChatWorkspace() {
       { text },
       {
         body: {
+          ...turnBody({ mode, modelId, models }),
           context: contextString || undefined,
           project: project || undefined,
           conversationId: id || undefined,
@@ -342,6 +368,54 @@ export default function ChatWorkspace() {
           </span>
         </div>
 
+        {/* Routing (BR_01, BR_02). Before this, chat sent neither mode nor model,
+            so the chain and the budget were never consulted. */}
+        <div className="flex items-center gap-2 border-b border-neutral-800 px-3 py-1.5 text-xs">
+          <div className="flex overflow-hidden rounded border border-neutral-800">
+            {(["auto", "manual"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={
+                  mode === m
+                    ? "bg-neutral-800 px-2 py-1 text-neutral-100"
+                    : "px-2 py-1 text-neutral-500 hover:text-neutral-300"
+                }
+                title={
+                  m === "auto"
+                    ? "IDEA picks a model using your fallback chain and budget"
+                    : "You pick the model"
+                }
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+
+          <select
+            value={modelId}
+            onChange={(e) => {
+              setModelId(e.target.value);
+              localStorage.setItem("idea.modelId", e.target.value);
+            }}
+            // In auto mode the router chooses; an enabled control that changes
+            // nothing would misrepresent what the turn does (BR_02_Picker).
+            disabled={mode === "auto" || models.length === 0}
+            className="rounded border border-neutral-800 bg-neutral-900 px-2 py-1 text-xs outline-none focus:border-neutral-600 disabled:opacity-40"
+          >
+            {models.length === 0 && <option value="">no models available</option>}
+            {models.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+
+          <span className="ml-auto truncate text-neutral-600">
+            {mode === "auto" ? "chain + budget decide" : "your choice"}
+          </span>
+        </div>
+
         <div ref={scrollRef} className="min-h-0 flex-1 space-y-4 overflow-auto p-4">
           {messages.length === 0 && (
             <div className="mx-auto mt-16 max-w-md text-center text-sm text-neutral-500">
@@ -356,6 +430,19 @@ export default function ChatWorkspace() {
                 }`}
               >
                 {m.parts.map((part, i) => (part.type === "text" ? <span key={i}>{part.text}</span> : null))}
+
+                {/* Which model answered, and what the router skipped to get
+                    there. This was computed and streamed all along; nothing
+                    read it (BR_01_ShowDecision). */}
+                {m.role === "assistant" && (() => {
+                  const meta = m.metadata as { routing?: Parameters<typeof describeDecision>[0] } | undefined;
+                  const line = describeDecision(meta?.routing);
+                  return line ? (
+                    <div className="mt-1.5 border-t border-neutral-800 pt-1 text-[10px] text-neutral-500">
+                      {line}
+                    </div>
+                  ) : null;
+                })()}
               </div>
             </div>
           ))}

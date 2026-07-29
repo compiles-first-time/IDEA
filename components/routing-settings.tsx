@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 import type { PublicModel } from "@/components/model-picker";
+import { LocalModelsPanel } from "@/components/local-models-panel";
 import { ProviderKeysPanel } from "@/components/provider-keys-panel";
 
 /**
@@ -100,6 +101,8 @@ export function RoutingSettings({
       </header>
 
       <ProviderKeysPanel />
+
+      <LocalModelsPanel />
 
       {/* Fallback chain -------------------------------------------------- */}
       <section className="space-y-3 rounded-lg border border-neutral-800 p-4">

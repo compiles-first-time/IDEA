@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -93,4 +94,146 @@ test("every executed call is reported to the caller", async (t) => {
     { tool: "read_file", ok: true },
     { tool: "read_file", ok: false },
   ]);
+});
+
+/* -------------------------------------------------------------------------- */
+/* BR_04 — confirmation for mutating tools                                     */
+/* -------------------------------------------------------------------------- */
+
+test("BR_04 — mutating tools are absent without a way to confirm", async (t) => {
+  const { root } = await workspace();
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  const tools = chatTools({
+    scope: { projectRoot: root, ideaRoot: process.cwd() },
+    allowMutations: true, // asked for, but no confirm callback
+  });
+  assert.equal(tools.write_file, undefined, "offering them would dead-end every call");
+  assert.equal(tools.bash, undefined);
+});
+
+test("BR_04 — with a confirm callback the mutating tools appear", async (t) => {
+  const { root } = await workspace();
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  const tools = chatTools({
+    scope: { projectRoot: root, ideaRoot: process.cwd() },
+    allowMutations: true,
+    confirm: async () => true,
+  });
+  assert.ok(tools.write_file);
+  assert.ok(tools.bash);
+});
+
+test("BR_04 — an in-scope write is reversible, so it runs without prompting", async (t) => {
+  // The axis is reversibility, not capability (09-agent-authority). A new file
+  // inside the project is recoverable with git, so Rule 20 does not require a
+  // confirmation — gating it would train the user to click through prompts.
+  const { root } = await workspace();
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  let asked = 0;
+  const tools = chatTools({
+    scope: { projectRoot: root, ideaRoot: process.cwd() },
+    allowMutations: true,
+    confirm: async () => {
+      asked++;
+      return true;
+    },
+  });
+
+  await run(tools, "write_file", { path: "new.md", content: "hello" });
+  assert.equal(await readFile(join(root, "new.md"), "utf8"), "hello");
+  assert.equal(asked, 0, "a reversible write should not prompt");
+});
+
+test("BR_04 — a destructive command DOES prompt before it runs", async (t) => {
+  const { root } = await workspace();
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  const asked: string[] = [];
+  const tools = chatTools({
+    scope: { projectRoot: root, ideaRoot: process.cwd() },
+    allowMutations: true,
+    confirm: async (r) => {
+      asked.push(r.reason);
+      return false; // decline, so nothing destructive actually runs in a test
+    },
+  });
+
+  const r = (await run(tools, "bash", { command: "rm -rf build" })) as { declined?: boolean };
+  assert.equal(asked.length, 1, "Rule 20 — destructive operations require confirmation");
+  assert.match(asked[0], /confirm/i);
+  assert.equal(r.declined, true);
+});
+
+test("BR_04_BE-02 — a declined destructive action does not run, and says it was declined", async (t) => {
+  const { root } = await workspace();
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  await writeFile(join(root, "keep.md"), "still here");
+  const tools = chatTools({
+    scope: { projectRoot: root, ideaRoot: process.cwd() },
+    allowMutations: true,
+    confirm: async () => false,
+  });
+
+  const r = (await run(tools, "bash", { command: "rm -rf keep.md" })) as {
+    ok: boolean;
+    declined?: boolean;
+  };
+  assert.equal(r.ok, false);
+  assert.equal(r.declined, true, "a decline is an answer, not an error");
+  assert.equal(existsSync(join(root, "keep.md")), true, "nothing should have been deleted");
+});
+
+test("BR_04_BE-03 — a destructive call with nobody to ask pauses instead of acting", async (t) => {
+  const { root } = await workspace();
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  // allowMutations without confirm yields no mutating tools at all, so the
+  // pause is structural: there is nothing to call.
+  const tools = chatTools({ scope: { projectRoot: root, ideaRoot: process.cwd() }, allowMutations: true });
+  assert.equal(tools.bash, undefined);
+});
+
+test("BR_04_BE-01 — an out-of-scope write REFUSES and is never offered for confirmation", async (t) => {
+  const { root } = await workspace();
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  let asked = 0;
+  const tools = chatTools({
+    scope: { projectRoot: root, ideaRoot: process.cwd() },
+    allowMutations: true,
+    confirm: async () => {
+      asked++;
+      return true;
+    },
+  });
+
+  const r = (await run(tools, "write_file", { path: "../../escape.md", content: "x" })) as {
+    ok: boolean;
+    error: string;
+  };
+  assert.equal(r.ok, false);
+  assert.equal(asked, 0, "a scope violation must not become a prompt a user can wave through");
+  assert.match(r.error, /Refused/i);
+});
+
+test("BR_04 — reads never prompt, because reading is reversible", async (t) => {
+  const { root } = await workspace();
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  let asked = 0;
+  const tools = chatTools({
+    scope: { projectRoot: root, ideaRoot: process.cwd() },
+    allowMutations: true,
+    confirm: async () => {
+      asked++;
+      return true;
+    },
+  });
+
+  await run(tools, "read_file", { path: "README.md" });
+  assert.equal(asked, 0);
 });
