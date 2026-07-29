@@ -49,6 +49,16 @@ export const ChatRequest = z.object({
     .default([]),
   /** True when the turn invokes a skill — a fact, never inferred from prose. */
   needsTools: z.boolean().default(false),
+  /**
+   * Where this conversation is persisted (S-46, FR-9).
+   *
+   * Both optional so a chat still works before a project is chosen — but when
+   * they are present the turn is saved, and when they are absent it is not.
+   * Nothing in between: a chat that half-saves is worse than one that plainly
+   * does not.
+   */
+  project: z.string().min(1).optional(),
+  conversationId: z.string().min(1).optional(),
 });
 
 /**

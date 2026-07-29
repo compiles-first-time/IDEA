@@ -9,6 +9,8 @@ import { chainFor, loadRoutingConfig, orderFromChain } from "@/lib/fallback";
 import { resolveModel } from "@/lib/providers";
 import { enabledModels, getModel, defaultModelId, loadRegistry } from "@/lib/registry";
 import { route, scoreComplexity, selectModel } from "@/lib/router";
+import type { NewTurn } from "@/lib/conversation";
+import { appendForProject } from "@/lib/project-conversations";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -78,7 +80,34 @@ export async function POST(req: Request) {
       messages: await convertToModelMessages(messages),
     });
 
+    // Persist the user's turn now rather than after the answer: if the stream
+    // fails or the tab closes mid-reply, what the user said is still recorded.
+    // Losing your own message is worse than losing the reply, which can be asked
+    // for again.
+    const persist = body.project && body.conversationId
+      ? { project: body.project, id: body.conversationId }
+      : null;
+
+    if (persist) {
+      await savePersistFailure(persist, {
+        role: "user",
+        content: [
+          { type: "text", text: prompt },
+          ...body.contextFiles.map((f) => ({ type: "repo_context" as const, ...f })),
+        ],
+      });
+    }
+
     return result.toUIMessageStreamResponse({
+      onFinish: async ({ responseMessage }) => {
+        if (!persist) return;
+        const text = textOf(responseMessage as UIMessage);
+        if (!text) return;
+        await savePersistFailure(
+          persist,
+          { role: "assistant", content: [{ type: "text", text }], modelId: chosen.id },
+        );
+      },
       messageMetadata: ({ part }) => {
         // Known before the first token — show the decision while streaming.
         if (part.type === "start") {
@@ -135,6 +164,37 @@ function manualDecision(
 }
 
 /** Flatten the newest user turn to text for scoring. */
+/**
+ * Save a turn, and never take the chat down over it.
+ *
+ * A failed save is real and must be visible — but throwing here would abort a
+ * reply the user is already reading. The store surfaces its own retry
+ * exhaustion; this logs loudly so the failure is not silent, and E-9.d's
+ * user-facing surface is tracked in S-46 rather than faked here.
+ */
+async function savePersistFailure(
+  target: { project: string; id: string },
+  turn: NewTurn,
+): Promise<void> {
+  try {
+    await appendForProject(target.project, target.id, turn);
+  } catch (e) {
+    console.error(
+      `[chat] the turn was NOT saved to ${target.project}/${target.id}:`,
+      e instanceof Error ? e.message : e,
+    );
+  }
+}
+
+/** Flatten an assistant message's text parts. */
+function textOf(message: UIMessage | undefined): string {
+  if (!message) return "";
+  return (message.parts ?? [])
+    .map((p) => (p.type === "text" ? p.text : ""))
+    .join("")
+    .trim();
+}
+
 function lastUserText(messages: readonly UIMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
