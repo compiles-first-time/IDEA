@@ -173,6 +173,19 @@ already receiving and discarding.
 These are asks a human makes in that repo. IDEA ships the reader and shows "not
 recorded" until the writer exists.
 
+## Phase 3 — usability & access *(from live use, 2026-07-28)*
+
+| ID | Story | Why |
+|---|---|---|
+| [S-46](S-46-wire-up-what-is-built.md) | Wire up what is already built | Conversations, the conversation picker, and local-model discovery are all built, tested, and **unreachable from the UI** |
+| [S-47](S-47-identity-and-access.md) | Identity and access beyond a GitHub allowlist | Domain SSO, invitations with expiry, account switching |
+| [S-48](S-48-provider-key-discovery.md) | Discover models from a pasted API key | The registry is static; a key that unlocks a new model gets you nothing |
+
+**The pattern worth naming:** S-46 exists because three separate stories were
+closed as done while their feature stayed unreachable. Each passed its own tests.
+"Done" was measured against the library, never against a user being able to get
+to it. The missing nav was the same defect, found the same way — by using it.
+
 ## Phase 3 — still out of scope
 
 Skill marketplace, multi-project orchestration, budget analytics dashboards, IDEA
