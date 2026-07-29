@@ -156,6 +156,7 @@ what the data does and does not support.
 | [S-41](S-41-provenance-graph.md) | The provenance graph | **No** (degrades) | Not started |
 | [S-42](S-42-requirements-ledger.md) | Requirements, exceptions, technical deps | No — new repo artifact | Not started |
 | [S-43](S-43-requirements-to-test-cases.md) | Requirements → test cases | No | Not started |
+| [S-44](S-44-requirements-analyst-agent.md) | Requirements analyst agent (lives in Loom) | Human installs it | Drafted |
 
 **S-39 first.** It is the cheapest and it recovers rule/ADR attribution IDEA is
 already receiving and discarding.
@@ -177,15 +178,9 @@ recorded" until the writer exists.
 Skill marketplace, multi-project orchestration, budget analytics dashboards, IDEA
 emitting telemetry back to the Observatory. *(Chat persistence graduated into Phase 2.)*
 
-### S-38 — Requirements-gathering agent *(next up, not started)*
+### S-38 — Requirements-gathering agent — **superseded by [S-44](S-44-requirements-analyst-agent.md)**
 
-An agent plus skills that interview the user and turn the answers into a project
-brief. Everything it needs already exists: the agent loop (S-13), the skill
-manifest parser (S-11), the tool allowlist (S-12), and conversations that persist
-into the project's own repo (S-27). The work is the skills and the interview
-itself, not new plumbing.
-
-Two things to settle before building it: where the brief lands (a file in the new
-project's repo is the obvious answer, since that is where the conversation already
-lives), and whether it runs before provisioning — a brief that shapes what gets
-scaffolded is worth more than one written afterwards.
+Sketched before the format was known. S-44 replaces it with a design built from a
+real ledger: three tiers (requirement → solution → exception), the SE/BE split,
+twelve mandatory fields, and completion decided by a validator rather than by the
+agent's own sense that it understands enough.
