@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
-import { readFile, readdir, writeFile, mkdir } from "node:fs/promises";
-import { dirname, relative, resolve } from "node:path";
+import { readFile, readdir, writeFile, mkdir, stat } from "node:fs/promises";
+import { dirname, join, relative, resolve } from "node:path";
 
 import { z } from "zod";
 
@@ -46,6 +46,19 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
     description: "List files under a project-relative directory.",
     parameters: z.object({
       path: z.string().default(".").describe("Project-relative directory"),
+    }),
+    pathsFor: (a) => [String(a.path ?? ".")],
+  },
+  {
+    name: "search_files",
+    description:
+      "Search the project's text files for a pattern and return matching lines with their paths. " +
+      "Use this to find where something is defined or used before reading whole files.",
+    parameters: z.object({
+      pattern: z.string().min(1).describe("Substring or regular expression to find"),
+      path: z.string().default(".").describe("Project-relative directory to search"),
+      regex: z.boolean().default(false).describe("Treat the pattern as a regular expression"),
+      maxResults: z.number().int().positive().max(200).default(50),
     }),
     pathsFor: (a) => [String(a.path ?? ".")],
   },
@@ -134,6 +147,16 @@ export async function executeTool(
         return await doWrite(String(args.path), String(args.content), opts);
       case "list_files":
         return await doList(String(args.path ?? "."), opts);
+      case "search_files":
+        return await doSearch(
+          {
+            pattern: String(args.pattern),
+            path: String(args.path ?? "."),
+            regex: Boolean(args.regex),
+            maxResults: Number(args.maxResults ?? 50),
+          },
+          opts,
+        );
       case "bash":
         return await doBash(String(args.command), opts);
       default:
@@ -172,6 +195,100 @@ async function doList(path: string, opts: ExecOptions) {
   return {
     ok: true,
     result: entries.map((e) => (e.isDirectory() ? `${e.name}/` : e.name)).sort(),
+  };
+}
+
+/** Directories never worth searching, and expensive enough to matter. */
+const SKIP_DIRS = new Set([".git", "node_modules", ".next", "dist", "build", ".venv", "__pycache__"]);
+/** Above this a file is almost certainly not source, and reading it is waste. */
+const MAX_SEARCH_BYTES = 512 * 1024;
+
+/**
+ * Search the project's text files.
+ *
+ * This exists so finding something does not require `bash`. Handing the model a
+ * shell to run `grep` works, but it carries the whole shell — a far wider
+ * permission surface than "read some files and tell me which lines matched", and
+ * one that has to be classified and gated on every call. A narrow tool is
+ * cheaper to reason about and cannot be talked into doing something else.
+ *
+ * Binary files are skipped by looking for a NUL byte rather than by extension:
+ * extensions lie, and a stray match inside a compiled artifact is noise at best.
+ */
+async function doSearch(
+  args: { pattern: string; path: string; regex: boolean; maxResults: number },
+  opts: ExecOptions,
+) {
+  let test: (line: string) => boolean;
+  if (args.regex) {
+    let re: RegExp;
+    try {
+      re = new RegExp(args.pattern, "i");
+    } catch (e) {
+      // A bad pattern is the caller's mistake to fix, not a crash.
+      return { ok: false, result: `invalid regular expression: ${(e as Error).message}` };
+    }
+    test = (line) => re.test(line);
+  } else {
+    const needle = args.pattern.toLowerCase();
+    test = (line) => line.toLowerCase().includes(needle);
+  }
+
+  const root = abs(args.path, opts.scope);
+  const matches: Array<{ path: string; line: number; text: string }> = [];
+  let truncated = false;
+
+  async function walk(dir: string): Promise<void> {
+    if (truncated) return;
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return; // Unreadable directory is skipped, not fatal.
+    }
+    for (const entry of entries) {
+      if (truncated) return;
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (SKIP_DIRS.has(entry.name)) continue;
+        await walk(full);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+
+      let content: string;
+      try {
+        const info = await stat(full);
+        if (info.size > MAX_SEARCH_BYTES) continue;
+        content = await readFile(full, "utf8");
+      } catch {
+        continue;
+      }
+      if (content.includes("\0")) continue; // binary
+
+      const lines = content.split("\n");
+      for (let i = 0; i < lines.length; i++) {
+        if (!test(lines[i])) continue;
+        matches.push({
+          path: relative(opts.scope.projectRoot, full).replace(/\\/g, "/"),
+          line: i + 1,
+          text: lines[i].slice(0, 300),
+        });
+        if (matches.length >= args.maxResults) {
+          truncated = true;
+          return;
+        }
+      }
+    }
+  }
+
+  await walk(root);
+
+  return {
+    ok: true,
+    // Truncation is reported, never silent: "50 matches" and "at least 50
+    // matches" lead to different next moves.
+    result: { matches, truncated, count: matches.length },
   };
 }
 
