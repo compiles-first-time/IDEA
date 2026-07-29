@@ -20,7 +20,7 @@ import { checkPath, type ScopeContext, type ToolCall } from "@/lib/permissions";
 export interface ToolDefinition {
   name: string;
   description: string;
-  parameters: z.ZodType;
+  parameters: z.ZodType<Record<string, unknown>>;
   /** Paths this call will touch, so the gate can scope-check before approval. */
   pathsFor: (args: Record<string, unknown>) => string[];
 }

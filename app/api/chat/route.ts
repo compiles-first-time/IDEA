@@ -1,4 +1,4 @@
-import { convertToModelMessages, streamText, type UIMessage } from "ai";
+import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from "ai";
 
 import { auth } from "@/auth";
 import { jsonError, serverError } from "@/lib/api";
@@ -11,6 +11,10 @@ import { enabledModels, getModel, defaultModelId, loadRegistry } from "@/lib/reg
 import { route, scoreComplexity, selectModel } from "@/lib/router";
 import type { NewTurn } from "@/lib/conversation";
 import { appendForProject } from "@/lib/project-conversations";
+import { chatTools } from "@/lib/chat-tools";
+import { orientationPrompt, readOrientation } from "@/lib/orientation";
+import { loadProjects } from "@/lib/project-store";
+import { getProject, projectRoot } from "@/lib/projects";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -67,8 +71,13 @@ export async function POST(req: Request) {
   const chosen = getModel(decision.chosenModelId, registry);
   if (!chosen) return jsonError(`model ${decision.chosenModelId} is unavailable`, 500);
 
+  // A selected project turns the chat from "answer from what was pasted" into
+  // "go and look". Orientation is attached; location is searched (S-49).
+  const workspace = body.project ? await workspaceFor(body.project) : null;
+
   const system =
     "You are IDEA, a precise, concise coding assistant." +
+    (workspace ? orientationPrompt(body.project!, workspace.orientation) : "") +
     (body.context
       ? `\n\nThe user attached these repository files as context. Use them when relevant:\n\n${body.context}`
       : "");
@@ -78,6 +87,11 @@ export async function POST(req: Request) {
       model: resolveModel(chosen),
       system,
       messages: await convertToModelMessages(messages),
+      tools: workspace?.tools,
+      // Without this the model emits one tool call and stops, leaving the user
+      // looking at a search result instead of an answer. Bounded so a loop that
+      // keeps searching cannot run away with the budget.
+      stopWhen: workspace ? stepCountIs(MAX_TOOL_STEPS) : undefined,
     });
 
     // Persist the user's turn now rather than after the answer: if the stream
@@ -164,6 +178,39 @@ function manualDecision(
 }
 
 /** Flatten the newest user turn to text for scoring. */
+/**
+ * How many tool round-trips one turn may take before it must answer.
+ *
+ * High enough for search → read → read → answer, low enough that a model which
+ * keeps looking cannot spend the budget looking.
+ */
+const MAX_TOOL_STEPS = 8;
+
+/**
+ * Resolve a project into the things a grounded turn needs: its orientation
+ * documents and its tools.
+ *
+ * Returns null when the project is unknown rather than failing the turn — chat
+ * without a project is a supported state (it simply is not saved and cannot
+ * search), and an unknown name should not swallow the user's message.
+ */
+async function workspaceFor(projectName: string) {
+  try {
+    const ideaRoot = process.cwd();
+    const project = getProject(await loadProjects(ideaRoot), projectName);
+    if (!project) return null;
+
+    const root = projectRoot(ideaRoot, project);
+    const scope = { projectRoot: root, ideaRoot };
+    return {
+      orientation: await readOrientation(root),
+      tools: chatTools({ scope }),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Save a turn, and never take the chat down over it.
  *
