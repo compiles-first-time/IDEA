@@ -5,22 +5,53 @@
 
 ## The finding
 
-Three features are **fully built, tested, and unreachable**. This is the same
-class of defect as the missing nav — code that works, with no wire to the UI:
+Features are **fully built, tested, and unreachable**. Same class of defect as
+the missing nav: code that works, with no wire to the UI.
 
-| Built | Where | Reachable from the UI? |
+Measured 2026-07-29 by checking every API route for a client caller and every
+component for an importer — not from memory.
+
+### Done since
+
+| Built | Status |
+|---|---|
+| Conversation store | ✅ wired (project-scoped, local store) |
+| Repo search / read for chat | ✅ wired (`search_files`, `read_file`, `list_files`) |
+| Project orientation docs | ✅ wired |
+
+### Still unreachable
+
+| Built | Where | Why it matters |
 |---|---|---|
-| Conversation store (append-only, redacted, SHA-pinned) | `lib/conversation-store.ts`, `/api/conversations` | **No** |
-| Conversation picker | `components/conversation-picker.tsx` | **No** — never rendered |
-| Local model discovery + endpoint probe | `lib/local-models.ts`, `/api/local` | **No** |
+| **Routing, chain, budget** | `lib/router.ts`, `lib/fallback.ts`, `lib/ledger.ts` | **The big one** — see below |
+| Model picker | `components/model-picker.tsx`, `/api/models` | No caller; chat cannot choose a model |
+| Compaction / resume fidelity | `lib/compact.ts`, `/api/conversations/[id]/plan` | The "will it survive a different model" answer |
+| Conversation picker | `components/conversation-picker.tsx` | Never rendered (chat uses a plain dropdown) |
+| Local model discovery | `lib/local-models.ts`, `/api/local` | No UI |
+| Skills + the agent loop | `lib/skills.ts`, `lib/agent.ts`, `/api/skills/**` | No caller — includes the confirmation flow |
+| Loom config reader | `lib/loom-config.ts` | Imported by nothing at all |
 
-`app/api/chat/route.ts` contains no persistence call at all. `useChat` holds
-messages in memory, so closing the tab loses the conversation — exactly what was
-observed: open a project, come back, the chat is gone.
+### The routing gap
 
-This is worth naming as a pattern. Each of these passed its own tests and closed
-its own story. "Done" was measured against the library, never against a user
-being able to reach it.
+`components/chat-workspace.tsx` sends **no `mode` and no `model`**. `ChatRequest`
+defaults `mode` to `"manual"`, so every chat turn runs manual mode against
+`defaultModelId()`.
+
+Consequences, all silent:
+
+- The user-ordered fallback chain (S-33) is **never consulted in chat**.
+- The spend allocation and budget cap (S-34) never apply.
+- Complexity scoring and auto-selection (S-08) never run.
+- The `RoutingDecision` *is* computed and streamed as `start` metadata — and the
+  UI reads no metadata at all, so it is discarded.
+
+Workstream 2 is six stories, all marked done, and none of it reaches the only
+screen where a model gets chosen. Configuring a chain in Settings changes
+nothing, which is worse than the feature being absent: the settings page implies
+an effect it does not have.
+
+**Fix order:** send `mode`/`model` from chat and render the returned decision.
+That is a small change and it activates six completed stories at once.
 
 ## Scope
 
