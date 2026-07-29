@@ -29,6 +29,19 @@ export async function Nav() {
         <form
           action={async () => {
             "use server";
+            // Lands on /login?switch=1, which explains that GitHub's own session
+            // survives an IDEA sign-out — otherwise "sign out, sign in" silently
+            // returns you to the same account.
+            await signOut({ redirectTo: "/login?switch=1" });
+          }}
+        >
+          <button className="rounded border border-neutral-700 px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-800">
+            Switch account
+          </button>
+        </form>
+        <form
+          action={async () => {
+            "use server";
             await signOut({ redirectTo: "/login" });
           }}
         >

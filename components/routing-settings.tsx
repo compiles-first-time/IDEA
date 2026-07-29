@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 import type { PublicModel } from "@/components/model-picker";
+import { ProviderKeysPanel } from "@/components/provider-keys-panel";
 
 /**
  * Routing & budget settings (S-35, FR-4.6/4.9/4.11).
@@ -97,6 +98,8 @@ export function RoutingSettings({
           handle the message, or that you can&rsquo;t afford.
         </p>
       </header>
+
+      <ProviderKeysPanel />
 
       {/* Fallback chain -------------------------------------------------- */}
       <section className="space-y-3 rounded-lg border border-neutral-800 p-4">
