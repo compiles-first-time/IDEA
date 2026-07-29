@@ -63,6 +63,12 @@ export const KNOWN_EVENT_TYPES = [
   "observatory_auto_started",
   "auto_bootstrap_attempted",
   "auto_bootstrap_result",
+  // Upstream provenance instrumentation (loom-template, 2026-07-28) — added to
+  // the reader in the same change as the writer, so the drift that hid 244
+  // events cannot repeat for these.
+  "skill_invoked",
+  "agent_invoked",
+  "turn_token_usage",
 ] as const;
 
 /**
@@ -169,6 +175,28 @@ export interface ObservatoryState {
     sources: number;
     whatWouldRaise: string | null;
   }>;
+  /** FR-13.1 — which agent used which skill. */
+  skills: Record<string, { count: number; agents: string[] }>;
+  /** FR-13.5 — which agent invoked which agent. */
+  agentEdges: Array<{ parent: string; child: string; at: string | null }>;
+  /**
+   * FR-13.2/13.3 — per-turn cost and execution kind.
+   *
+   * Deliberately NOT added to `cost` totals: `session_token_usage` is already
+   * session-cumulative, so summing both would double-count. These exist to
+   * attribute cost to a *node*, which the session total cannot do.
+   */
+  turns: Array<{
+    at: string | null;
+    sessionId: string | null;
+    turnIndex: number;
+    inputTokens: number;
+    outputTokens: number;
+    model: string | null;
+    tools: string[];
+  }>;
+  /** How much of the log ran as code rather than inference. */
+  executionKinds: Record<string, number>;
   agents: { spawned: string[]; retired: string[] };
   deploys: { history: Array<{ at: string | null; status: string; detail: string }> };
   testing: { lastRun: string | null; passed: number; failed: number };
@@ -193,6 +221,10 @@ function emptyState(project: string): ObservatoryState {
     failures: { errors: [], signatures: {} },
     compliance: { destructiveOps: [], constitutionChecksMissing: 0, byRule: {}, attempts: [] },
     claims: [],
+    skills: {},
+    agentEdges: [],
+    turns: [],
+    executionKinds: {},
     agents: { spawned: [], retired: [] },
     deploys: { history: [] },
     testing: { lastRun: null, passed: 0, failed: 0 },
@@ -224,6 +256,9 @@ function sessionFor(state: ObservatoryState, id: string | null): SessionSummary 
 const MAX_CLAIMS = 100;
 /** Same bound for the permission ledger. */
 const MAX_ATTEMPTS = 200;
+/** Per-turn cost rows and agent edges are bounded for the same reason. */
+const MAX_TURNS = 300;
+const MAX_EDGES = 200;
 
 /**
  * Fold one permission-attempt event into the compliance record (FR-13.4).
@@ -327,6 +362,10 @@ export function applyEvent(state: ObservatoryState, event: LoomEvent): void {
         session.toolCalls += 1;
         session.lastTool = str(event.tool);
       }
+      // FR-13.3 — code vs inference. Absent on older events, which is honestly
+      // "unknown" rather than either answer.
+      const kind = str(event.execution_kind) ?? "unknown";
+      state.executionKinds[kind] = (state.executionKinds[kind] ?? 0) + 1;
       break;
     }
 
@@ -404,6 +443,50 @@ export function applyEvent(state: ObservatoryState, event: LoomEvent): void {
     case "runtime_discovery_run":
       note(state, "discovery", "runtime discovery ran", at);
       break;
+
+    case "skill_invoked": {
+      const skill = str(event.skill);
+      if (!skill) break;
+      const bucket = (state.skills[skill] ??= { count: 0, agents: [] });
+      bucket.count += 1;
+      const who = str(event.agent);
+      if (who && !bucket.agents.includes(who)) bucket.agents.push(who);
+      note(state, "skill", `${who ?? "an agent"} used /${skill}`, at);
+      break;
+    }
+
+    case "agent_invoked": {
+      const child = str(event.agent);
+      if (!child) break;
+      const parent = str(event.parent_agent) ?? "main";
+      state.agentEdges.push({ parent, child, at });
+      if (state.agentEdges.length > MAX_EDGES) state.agentEdges.shift();
+      if (!state.agents.spawned.includes(child)) state.agents.spawned.push(child);
+      note(state, "agent", `${parent} → ${child}`, at);
+      break;
+    }
+
+    case "turn_token_usage": {
+      // Not folded into cost totals — session_token_usage already covers the
+      // session, and adding both would double-count. This exists to attach cost
+      // to a node, which a session total cannot do.
+      const tools = Array.isArray(event.tool_uses)
+        ? (event.tool_uses as Array<{ tool?: unknown }>)
+            .map((t) => str(t?.tool))
+            .filter((t): t is string => Boolean(t))
+        : [];
+      state.turns.push({
+        at,
+        sessionId: sid,
+        turnIndex: num(event.turn_index),
+        inputTokens: num(event.input_tokens),
+        outputTokens: num(event.output_tokens),
+        model: str(event.model),
+        tools,
+      });
+      if (state.turns.length > MAX_TURNS) state.turns.shift();
+      break;
+    }
 
     case "observatory_auto_started":
     case "auto_bootstrap_attempted":

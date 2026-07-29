@@ -33,6 +33,10 @@ function blank(): ObservatoryState {
     failures: { errors: [], signatures: {} },
     compliance: { destructiveOps: [], constitutionChecksMissing: 0, byRule: {}, attempts: [] },
     claims: [],
+    skills: {},
+    agentEdges: [],
+    turns: [],
+    executionKinds: {},
     agents: { spawned: [], retired: [] },
     deploys: { history: [] },
     testing: { lastRun: null, passed: 0, failed: 0 },
@@ -228,4 +232,69 @@ test("the real local Loom logs project with no unknown types", async (t) => {
     `still dropping: ${Object.keys(state.unknownEventTypes).join(", ")}`,
   );
   assert.ok(Object.keys(state.compliance.byRule).length > 0, "no rule attribution recovered");
+});
+
+/* -------------------------------------------------------------------------- */
+/* Upstream provenance instrumentation (loom-template, 2026-07-28)             */
+/* -------------------------------------------------------------------------- */
+
+test("skill_invoked builds the agent → skill map", () => {
+  const state = fold([
+    { event_type: "skill_invoked", skill: "testcase", agent: "builder" },
+    { event_type: "skill_invoked", skill: "testcase", agent: "critic" },
+    { event_type: "skill_invoked", skill: "handoff", agent: "builder" },
+  ]);
+  assert.equal(state.skills.testcase.count, 2);
+  assert.deepEqual(state.skills.testcase.agents, ["builder", "critic"]);
+  assert.equal(state.skills.handoff.count, 1);
+});
+
+test("agent_invoked draws the parent → child edge", () => {
+  const state = fold([
+    { event_type: "agent_invoked", agent: "critic", parent_agent: "builder" },
+  ]);
+  assert.deepEqual(state.agentEdges[0].parent, "builder");
+  assert.deepEqual(state.agentEdges[0].child, "critic");
+  assert.ok(state.agents.spawned.includes("critic"), "the child is a known agent");
+});
+
+test("an edge with no parent attributes to main rather than vanishing", () => {
+  const state = fold([{ event_type: "agent_invoked", agent: "auth" }]);
+  assert.equal(state.agentEdges[0].parent, "main");
+});
+
+test("execution_kind is counted, and absent means unknown — never a guess", () => {
+  const state = fold([
+    { event_type: "tool_call", execution_kind: "deterministic" },
+    { event_type: "tool_call", execution_kind: "deterministic" },
+    { event_type: "tool_call", execution_kind: "model" },
+    { event_type: "tool_call" }, // an older event, before the field existed
+  ]);
+  assert.equal(state.executionKinds.deterministic, 2);
+  assert.equal(state.executionKinds.model, 1);
+  assert.equal(state.executionKinds.unknown, 1);
+});
+
+test("turn_token_usage attributes cost to a node WITHOUT double-counting the session", () => {
+  const state = fold([
+    { event_type: "session_token_usage", session_id: "s1", input_tokens: 100, output_tokens: 50 },
+    {
+      event_type: "turn_token_usage",
+      session_id: "s1",
+      turn_index: 0,
+      input_tokens: 60,
+      output_tokens: 30,
+      model: "claude-opus-5",
+      tool_uses: [{ id: "t1", tool: "Bash" }, { id: "t2", tool: "Read" }],
+    },
+  ]);
+
+  // The session total must not absorb the per-turn rows — they describe the
+  // same tokens at a finer grain, so adding both would report double.
+  assert.equal(state.cost.inputTokens, 100);
+  assert.equal(state.cost.outputTokens, 50);
+
+  assert.equal(state.turns.length, 1);
+  assert.deepEqual(state.turns[0].tools, ["Bash", "Read"]);
+  assert.equal(state.turns[0].model, "claude-opus-5");
 });

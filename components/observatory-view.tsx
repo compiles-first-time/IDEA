@@ -63,6 +63,10 @@ export interface ObservatoryState {
     sources: number;
     whatWouldRaise: string | null;
   }>;
+  skills: Record<string, { count: number; agents: string[] }>;
+  agentEdges: Array<{ parent: string; child: string; at: string | null }>;
+  turns: Array<{ at: string | null; sessionId: string | null; turnIndex: number; inputTokens: number; outputTokens: number; model: string | null; tools: string[] }>;
+  executionKinds: Record<string, number>;
   agents: { spawned: string[]; retired: string[] };
   deploys: { history: Array<{ at: string | null; status: string; detail: string }> };
   testing: { lastRun: string | null; passed: number; failed: number };
@@ -304,6 +308,93 @@ function ClaimsPanel({ claims }: { claims: ObservatoryState["claims"] }) {
   );
 }
 
+/**
+ * The provenance maps: agent → skill, agent → agent, and code vs inference.
+ *
+ * Each renders only when its data exists. Before `loom-template`'s 2026-07-28
+ * instrumentation these fields were measured at **zero occurrences**, so an
+ * empty panel here means "not instrumented yet", not "nothing happened" — and
+ * an empty box saying nothing is the honest rendering of that.
+ */
+function ProvenanceMaps({ state }: { state: ObservatoryState }) {
+  const skills = Object.entries(state.skills).sort((a, b) => b[1].count - a[1].count);
+  const kinds = Object.entries(state.executionKinds).sort((a, b) => b[1] - a[1]);
+  const totalKinds = kinds.reduce((n, [, c]) => n + c, 0);
+
+  if (skills.length === 0 && state.agentEdges.length === 0 && totalKinds === 0) return null;
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      {skills.length > 0 && (
+        <Panel title="Skills used">
+          <ul className="space-y-1">
+            {skills.map(([skill, entry]) => (
+              <li key={skill} className="flex justify-between gap-3 text-sm">
+                <span className="font-mono text-xs text-emerald-300">/{skill}</span>
+                <span className="text-xs text-neutral-500">
+                  {entry.count}× · {entry.agents.join(", ") || "unattributed"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+
+      {state.agentEdges.length > 0 && (
+        <Panel title="Agent → agent">
+          <ul className="space-y-1">
+            {state.agentEdges.slice(-10).reverse().map((e, i) => (
+              <li key={i} className="flex justify-between gap-3 text-sm">
+                <span className="font-mono text-xs">
+                  <span className="text-neutral-400">{e.parent}</span>
+                  <span className="mx-1 text-neutral-600">→</span>
+                  <span className="text-violet-300">{e.child}</span>
+                </span>
+                <span className="text-xs text-neutral-600">{when(e.at)}</span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+
+      {totalKinds > 0 && (
+        <Panel title="Code vs inference">
+          <ul className="space-y-1">
+            {kinds.map(([kind, count]) => (
+              <li key={kind} className="flex justify-between gap-3 text-sm">
+                <span
+                  className={
+                    kind === "deterministic"
+                      ? "text-sky-300"
+                      : kind === "model"
+                        ? "text-amber-300"
+                        : "text-neutral-500"
+                  }
+                >
+                  {kind === "deterministic"
+                    ? "traditional code"
+                    : kind === "model"
+                      ? "inference"
+                      : "unknown"}
+                </span>
+                <span className="text-xs text-neutral-500">
+                  {count} ({Math.round((count / totalKinds) * 100)}%)
+                </span>
+              </li>
+            ))}
+          </ul>
+          {/* "unknown" is a real answer, not a rounding error — older events
+              predate the field, and MCP tools cannot be classified from here. */}
+          <p className="mt-2 text-xs text-neutral-600">
+            Unknown means the step predates the instrumentation or runs on an
+            external MCP server — not that it was free.
+          </p>
+        </Panel>
+      )}
+    </div>
+  );
+}
+
 export function ObservatoryView({ initial }: { initial: ObservatoryState }) {
   const { state, connection, lastUpdate } = useLiveState(initial);
   const unknown = Object.entries(state.unknownEventTypes);
@@ -364,6 +455,8 @@ export function ObservatoryView({ initial }: { initial: ObservatoryState }) {
 
       {/* Traceability: which rule governed which decision (FR-13.4). */}
       <RuleTrace compliance={state.compliance} />
+
+      <ProvenanceMaps state={state} />
 
       <ClaimsPanel claims={state.claims} />
 
