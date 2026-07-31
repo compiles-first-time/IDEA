@@ -129,7 +129,16 @@ export interface ObservatoryState {
     inputTokens: number;
     outputTokens: number;
     estimatedUsd: number;
-    bySession: Record<string, { inputTokens: number; outputTokens: number; estimatedUsd: number }>;
+    bySession: Record<
+      string,
+      {
+        inputTokens: number;
+        outputTokens: number;
+        estimatedUsd: number;
+        /** True when snapshots decreased — the cumulative assumption did not hold. */
+        nonMonotonic: boolean;
+      }
+    >;
   };
   failures: {
     errors: Array<{ at: string | null; sessionId: string | null; tool: string | null; preview: string | null }>;
@@ -208,7 +217,17 @@ export interface ObservatoryState {
   timeline: TimelineEvent[];
   agents: { spawned: string[]; retired: string[] };
   deploys: { history: Array<{ at: string | null; status: string; detail: string }> };
-  testing: { lastRun: string | null; passed: number; failed: number };
+  testing: {
+    lastRun: string | null;
+    /** Individual recorded cases. */
+    passed: number;
+    failed: number;
+    /** Recorded but not verified — pending or blocked. Never counted as passing. */
+    unverified: number;
+    /** Totals reported by run summaries, kept apart so neither double-counts. */
+    runPassed: number;
+    runFailed: number;
+  };
   tickets: Array<{ id: string; state: string; title: string }>;
   activity: ActivityItem[];
   /** FR-12.5 — drift is surfaced, never silently dropped. */
@@ -237,7 +256,7 @@ function emptyState(project: string): ObservatoryState {
     timeline: [],
     agents: { spawned: [], retired: [] },
     deploys: { history: [] },
-    testing: { lastRun: null, passed: 0, failed: 0 },
+    testing: { lastRun: null, passed: 0, failed: 0, unverified: 0, runPassed: 0, runFailed: 0 },
     tickets: [],
     activity: [],
     unknownEventTypes: {},
@@ -546,34 +565,74 @@ export function applyEvent(state: ObservatoryState, event: LoomEvent): void {
       const output = num(event.output_tokens);
       const usd = num(event.estimated_usd) || num(event.cost_usd);
 
-      state.cost.inputTokens += input;
-      state.cost.outputTokens += output;
-      state.cost.estimatedUsd += usd;
-
+      /*
+       * These are CUMULATIVE snapshots, not increments.
+       *
+       * Loom's Stop hook fires once per turn and re-emits the running session
+       * total each time, so a session's events read 862k, 7.2M, 64M, … 946M.
+       * Summing them counted the same tokens once per turn: measured on one real
+       * session, 28.7 BILLION reported against a true 946 million — a 30x
+       * over-count, and the number was on screen.
+       *
+       * The session total is therefore the LARGEST snapshot, not the sum.
+       */
       const key = sid ?? "unattributed";
       const bucket = (state.cost.bySession[key] ??= {
         inputTokens: 0,
         outputTokens: 0,
         estimatedUsd: 0,
+        nonMonotonic: false,
       });
-      bucket.inputTokens += input;
-      bucket.outputTokens += output;
-      bucket.estimatedUsd += usd;
+
+      // A snapshot that goes *down* means the assumption is wrong for this log.
+      // Record that rather than quietly applying `max` to data it does not fit.
+      if (input < bucket.inputTokens || output < bucket.outputTokens) {
+        bucket.nonMonotonic = true;
+      }
+
+      bucket.inputTokens = Math.max(bucket.inputTokens, input);
+      bucket.outputTokens = Math.max(bucket.outputTokens, output);
+      bucket.estimatedUsd = Math.max(bucket.estimatedUsd, usd);
+
+      // Project totals are re-derived from the per-session maxima, so they stay
+      // correct however many snapshots arrive.
+      const sessions = Object.values(state.cost.bySession);
+      state.cost.inputTokens = sessions.reduce((n, s) => n + s.inputTokens, 0);
+      state.cost.outputTokens = sessions.reduce((n, s) => n + s.outputTokens, 0);
+      state.cost.estimatedUsd = sessions.reduce((n, s) => n + s.estimatedUsd, 0);
       break;
     }
 
     case "test_run_summary": {
+      /*
+       * A run summary counts the same assertions the individual events count.
+       * Adding both reported roughly double — which is how the dashboard came to
+       * show "21693 / 21693 tests" for a project with ~1,200 recorded cases.
+       * The summary is authoritative for a run; individual rows are counted
+       * separately so neither is lost.
+       */
       state.testing.lastRun = at;
-      state.testing.passed += num(event.passed);
-      state.testing.failed += num(event.failed);
+      state.testing.runPassed += num(event.passed);
+      state.testing.runFailed += num(event.failed);
       note(state, "tests", `${num(event.passed)} passed, ${num(event.failed)} failed`, at);
       break;
     }
 
     case "test_result":
     case "test_case": {
-      if (event.ok === false || str(event.status) === "failed") state.testing.failed += 1;
-      else state.testing.passed += 1;
+      // ADR-0046's enum is pass | fail | pending | blocked. The old check tested
+      // for "failed", which that enum never emits — so `fail`, `pending` and
+      // `blocked` all counted as passing. Latent today (every recorded case is
+      // `pass`) and wrong the moment one is not.
+      const status = str(event.status)?.toLowerCase();
+      if (event.ok === false || status === "fail" || status === "failed") {
+        state.testing.failed += 1;
+      } else if (status === "pending" || status === "blocked") {
+        // Not verified is not passing (ADR-0046 §2).
+        state.testing.unverified += 1;
+      } else {
+        state.testing.passed += 1;
+      }
       break;
     }
 

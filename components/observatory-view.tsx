@@ -73,7 +73,14 @@ export interface ObservatoryState {
   timeline: TimelineEvent[];
   agents: { spawned: string[]; retired: string[] };
   deploys: { history: Array<{ at: string | null; status: string; detail: string }> };
-  testing: { lastRun: string | null; passed: number; failed: number };
+  testing: {
+    lastRun: string | null;
+    passed: number;
+    failed: number;
+    unverified: number;
+    runPassed: number;
+    runFailed: number;
+  };
   tickets: Array<{ id: string; state: string; title: string }>;
   activity: ActivityItem[];
   unknownEventTypes: Record<string, number>;
@@ -146,7 +153,7 @@ export function CrossProjectView({ summary }: { summary: CrossProjectSummary }) 
           value={String(summary.totals.errors)}
           tone={summary.totals.errors > 0 ? "warn" : undefined}
         />
-        <Stat label="Spent" value={usd(summary.totals.estimatedUsd)} />
+        <Stat label="Spent" value={usd(summary.totals.estimatedUsd, summary.totals.estimatedUsd > 0)} />
       </div>
 
       <Panel title="Projects">
@@ -167,7 +174,8 @@ export function CrossProjectView({ summary }: { summary: CrossProjectSummary }) 
                     )}
                   </span>
                   <span className="text-xs text-neutral-500">
-                    {p.totalSessions} sessions · {p.errors} errors · {usd(p.estimatedUsd)} ·{" "}
+                    {p.totalSessions} sessions · {p.errors} errors ·{" "}
+                    {usd(p.estimatedUsd, p.estimatedUsd > 0)} ·{" "}
                     {when(p.lastActivityAt)}
                   </span>
                 </a>
@@ -448,9 +456,17 @@ export function ObservatoryView({ initial }: { initial: ObservatoryState }) {
           )}
         />
         <Stat
-          label="Tests"
-          value={`${state.testing.passed} / ${state.testing.passed + state.testing.failed}`}
-          tone={state.testing.failed > 0 ? "bad" : undefined}
+          label="Test cases"
+          value={
+            state.testing.passed + state.testing.failed + state.testing.unverified === 0
+              ? "none recorded"
+              : `${state.testing.passed} passed · ${state.testing.failed} failed${
+                  state.testing.unverified > 0 ? ` · ${state.testing.unverified} unverified` : ""
+                }`
+          }
+          tone={
+            state.testing.failed > 0 ? "bad" : state.testing.unverified > 0 ? "warn" : undefined
+          }
         />
       </div>
 

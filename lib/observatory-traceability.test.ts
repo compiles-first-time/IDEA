@@ -40,7 +40,7 @@ function blank(): ObservatoryState {
     timeline: [],
     agents: { spawned: [], retired: [] },
     deploys: { history: [] },
-    testing: { lastRun: null, passed: 0, failed: 0 },
+    testing: { lastRun: null, passed: 0, failed: 0, unverified: 0, runPassed: 0, runFailed: 0 },
     tickets: [],
     activity: [],
     unknownEventTypes: {},
@@ -298,4 +298,68 @@ test("turn_token_usage attributes cost to a node WITHOUT double-counting the ses
   assert.equal(state.turns.length, 1);
   assert.deepEqual(state.turns[0].tools, ["Bash", "Read"]);
   assert.equal(state.turns[0].model, "claude-opus-5");
+});
+
+/* -------------------------------------------------------------------------- */
+/* Counting bugs found by adversarial review (2026-07-31)                      */
+/* -------------------------------------------------------------------------- */
+
+test("cumulative token snapshots are maxed, not summed", () => {
+  // Loom's Stop hook re-emits the running session total every turn. Summing
+  // counted the same tokens once per turn: measured on one real session, 28.7
+  // billion reported against a true 946 million.
+  const state = fold([
+    { event_type: "session_token_usage", session_id: "s1", input_tokens: 100, output_tokens: 10 },
+    { event_type: "session_token_usage", session_id: "s1", input_tokens: 250, output_tokens: 30 },
+    { event_type: "session_token_usage", session_id: "s1", input_tokens: 400, output_tokens: 55 },
+  ]);
+  assert.equal(state.cost.inputTokens, 400, "the largest snapshot, not 750");
+  assert.equal(state.cost.outputTokens, 55);
+});
+
+test("separate sessions still add together", () => {
+  const state = fold([
+    { event_type: "session_token_usage", session_id: "a", input_tokens: 100 },
+    { event_type: "session_token_usage", session_id: "a", input_tokens: 300 },
+    { event_type: "session_token_usage", session_id: "b", input_tokens: 50 },
+  ]);
+  assert.equal(state.cost.inputTokens, 350, "max(a)=300 plus max(b)=50");
+});
+
+test("a decreasing snapshot is flagged rather than silently maxed", () => {
+  // Going down means the cumulative assumption does not hold for this log, and
+  // applying `max` anyway would hide that.
+  const state = fold([
+    { event_type: "session_token_usage", session_id: "s1", input_tokens: 500 },
+    { event_type: "session_token_usage", session_id: "s1", input_tokens: 200 },
+  ]);
+  assert.equal(state.cost.bySession.s1.nonMonotonic, true);
+});
+
+test("a failing test case is counted as failing, not passing", () => {
+  // ADR-0046's enum emits `fail`; the old check tested for `failed`, so every
+  // non-passing status incremented the passed counter.
+  const state = fold([{ event_type: "test_case", status: "fail" }]);
+  assert.equal(state.testing.failed, 1);
+  assert.equal(state.testing.passed, 0);
+});
+
+test("pending and blocked cases are unverified, never passing", () => {
+  const state = fold([
+    { event_type: "test_case", status: "pending" },
+    { event_type: "test_case", status: "blocked" },
+  ]);
+  assert.equal(state.testing.unverified, 2);
+  assert.equal(state.testing.passed, 0, "not verified is not done (ADR-0046)");
+});
+
+test("run summaries are counted apart from individual cases", () => {
+  // Both used to increment the same counters, so a run of 1,000 assertions
+  // reported roughly double.
+  const state = fold([
+    { event_type: "test_case", status: "pass" },
+    { event_type: "test_run_summary", passed: 1000, failed: 2 },
+  ]);
+  assert.equal(state.testing.passed, 1, "individual cases");
+  assert.equal(state.testing.runPassed, 1000, "run totals, kept separate");
 });

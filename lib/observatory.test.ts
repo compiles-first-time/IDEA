@@ -153,8 +153,11 @@ test("specialists, deploys, tests and tickets project", async (t) => {
   const state = await projectState(dir, "demo");
   assert.deepEqual(state.agents.spawned, ["auth"]);
   assert.equal(state.deploys.history[0].status, "non_progressing");
-  assert.equal(state.testing.passed, 12);
-  assert.equal(state.testing.failed, 2);
+  // Run summaries are counted apart from individual cases: both used to
+  // increment the same counters, which reported a run roughly twice.
+  assert.equal(state.testing.runPassed, 12);
+  assert.equal(state.testing.runFailed, 2);
+  assert.equal(state.testing.passed, 0, "no individual test_case events here");
   assert.deepEqual(state.tickets, [{ id: "T-1", state: "open", title: "Fix it" }]);
 });
 
@@ -178,7 +181,10 @@ test("events across several days all fold in", async (t) => {
 
   const state = await projectState(dir, "demo");
   assert.equal(state.meta.filesRead, 3);
-  assert.equal(state.cost.estimatedUsd, 0.06);
+  // The same day repeated three times is three cumulative snapshots of ONE
+  // session, not three sessions. Summing them was the 30x over-count; the
+  // session total is the largest snapshot.
+  assert.equal(state.cost.estimatedUsd, 0.02);
 });
 
 /* -------------------------------------------------------------------------- */
@@ -294,7 +300,7 @@ test("summarize rolls up across projects — impossible from one project's serve
   );
   assert.equal(summary.totals.activeSessions, 2);
   assert.equal(summary.totals.errors, 3, "1 from alpha, 2 from beta");
-  assert.equal(summary.totals.estimatedUsd, 0.06);
+  assert.equal(summary.totals.estimatedUsd, 0.04, "0.02 per project, maxed not summed");
 });
 
 test("a project with no activity still appears in the roll-up", async (t) => {
