@@ -696,6 +696,40 @@ export interface ReadOptions {
  * Never throws for an absent or unreadable log: a project that has not run yet
  * simply has an empty Observatory, and the UI says so.
  */
+/**
+ * The raw events, in log order — for consumers that need the events themselves
+ * rather than the folded panels (the weave adapter, S/BR_05). Same reading
+ * discipline as projectState: bounded, skip-on-error, oversized files ignored.
+ */
+export async function readRawEvents(
+  projectRoot: string,
+  opts: ReadOptions = {},
+): Promise<LoomEvent[]> {
+  const dir = join(projectRoot, EVENT_LOG_DIR);
+  if (!existsSync(dir)) return [];
+  let files: string[];
+  try {
+    files = (await readdir(dir)).filter((f) => f.endsWith(".jsonl")).sort();
+  } catch {
+    return [];
+  }
+  const out: LoomEvent[] = [];
+  const maxEvents = opts.maxEvents ?? 50_000;
+  for (const file of files.slice(-(opts.days ?? 30))) {
+    const full = join(dir, file);
+    try {
+      if ((await stat(full)).size > 64 * 1024 * 1024) continue;
+      for (const event of parseEventLog(await readFile(full, "utf8"))) {
+        if (out.length >= maxEvents) return out;
+        out.push(event);
+      }
+    } catch {
+      // A file that vanished or is locked mid-read is skipped.
+    }
+  }
+  return out;
+}
+
 export async function projectState(
   projectRoot: string,
   projectName: string,

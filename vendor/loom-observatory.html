@@ -1,0 +1,2337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loom Observatory — L9</title>
+<style>
+/* ============================================================
+   LOOM OBSERVATORY — L9 prototype v4
+   v4: projects & profiles · portfolio home · causal connectors
+       glossary · model policy + vault · adjustable panels/type
+   Session → Run → Event hierarchy (OTel: session → trace → span)
+   Vanilla HTML/CSS/JS. No framework. No build step. (Per L9 spec)
+   Palette: slate/charcoal + #3b82f6 accent (project convention)
+   ============================================================ */
+:root{
+  --bg:#101418; --panel:#161c23; --panel2:#131920; --line:#232b35;
+  --text:#eef2f7; --muted:#98a3b2; --faint:#7a8695;
+  --accent:#3b82f6; --accent-soft:#1d3a66;
+  --c-human:#dbe4ee; --c-sup:#3b82f6; --c-cs:#f5b23e; --c-eac:#4ade80;
+  --c-hr:#7b8794; --c-rep:#9aa7b5; --c-critic:#fb7185; --c-mem:#38cfd9;
+  --c-smith:#fb923c; --c-llm:#a78bfa; --c-script:#2dd4bf; --c-file:#66788c;
+  --e-gov:#f5b23e; --e-llm:#a78bfa; --e-mem:#38cfd9; --e-read:#7f9bc4;
+  --e-write:#fb923c; --e-block:#ef4444; --e-ok:#22c55e; --e-tool:#2dd4bf;
+  --e-human:#3b82f6; --e-ledger:#5b8dd6;
+  --ok:#22c55e; --fail:#ef4444; --warn:#f5b23e;
+  --mono:ui-monospace,"Cascadia Code","SF Mono",Menlo,Consolas,monospace;
+  --sans:ui-sans-serif,system-ui,"Segoe UI",Inter,Roboto,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:.9375rem;overflow:hidden}
+button{font-family:inherit;color:inherit;background:none;border:none;cursor:pointer}
+button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+/* ---------- header ---------- */
+header{display:flex;align-items:center;gap:14px;height:52px;padding:0 16px;
+  border-bottom:1px solid var(--line);background:var(--panel2)}
+.brand{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.brand b{font-size:.9375rem;letter-spacing:.14em}
+.brand span{font-size:.7875rem;letter-spacing:.22em;color:var(--muted)}
+.sesschip{font-family:var(--mono);font-size:.825rem;color:var(--muted);border:1px solid var(--line);
+  border-radius:99px;padding:3px 10px;white-space:nowrap}
+.sesschip b{color:var(--text);font-weight:600}
+.status{display:flex;align-items:center;gap:6px;font-size:.825rem;color:var(--muted);white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+.dot.play{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.dot.gate{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+.spacer{flex:1}
+.transport{display:flex;align-items:center;gap:4px}
+.tbtn{width:32px;height:28px;display:grid;place-items:center;border:1px solid var(--line);
+  border-radius:6px;background:var(--panel);color:var(--muted)}
+.tbtn:hover{color:var(--text);border-color:var(--faint)}
+.tbtn:disabled{opacity:.35;cursor:default}
+.tbtn.primary{background:var(--accent);border-color:var(--accent);color:#fff;width:40px}
+.tbtn svg{width:13px;height:13px;fill:currentColor}
+.speed{font-family:var(--mono);font-size:.825rem;border:1px solid var(--line);border-radius:6px;
+  background:var(--panel);color:var(--muted);height:28px;padding:0 8px}
+.speed:hover{color:var(--text)}
+.learn{display:flex;align-items:center;gap:6px;font-size:.825rem;color:var(--muted)}
+.sw{width:30px;height:16px;border-radius:99px;background:var(--line);position:relative;transition:background .15s}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;
+  background:var(--muted);transition:transform .15s,background .15s}
+.sw.on{background:var(--accent-soft)}
+.sw.on::after{transform:translateX(14px);background:var(--accent)}
+.odometer{font-family:var(--mono);font-size:.8625rem;color:var(--muted);border:1px solid var(--line);
+  border-radius:6px;padding:5px 10px;background:var(--panel);white-space:nowrap}
+.odometer b{color:var(--text);font-weight:600}
+
+/* ---------- main grid ---------- */
+main{display:grid;grid-template-columns:var(--w-rail,236px) 6px minmax(0,1fr) 6px var(--w-right,372px);height:calc(100% - 52px)}
+.gutter{background:transparent;position:relative;touch-action:none;z-index:5}
+.gutter.v{cursor:col-resize}
+.gutter.h{cursor:row-resize;height:7px;flex-shrink:0}
+.gutter::after{content:"";position:absolute;background:var(--line);transition:background .12s}
+.gutter.v::after{left:2px;right:2px;top:0;bottom:0}
+.gutter.h::after{top:3px;bottom:2px;left:0;right:0}
+.gutter:hover::after,.gutter.drag::after,.gutter:focus-visible::after{background:var(--accent)}
+@media(max-width:1180px){main{grid-template-columns:minmax(0,1fr) 6px var(--w-right,372px);grid-template-rows:auto 1fr}
+  #h1{display:none}
+  .runrail{grid-column:1/-1;flex-direction:row;overflow-x:auto;border-bottom:1px solid var(--line);border-right:none}
+  .runrail .railhead{display:none}.runrail .railfoot{display:none}
+  .runcard{min-width:230px;border-bottom:none;border-right:1px solid var(--line)}}
+@media(max-width:940px){main{grid-template-columns:1fr;grid-template-rows:auto 54% auto}body{overflow:auto}
+  #h1,#h2{display:none}}
+
+/* ---------- run rail ---------- */
+.runrail{display:flex;flex-direction:column;border-right:1px solid var(--line);background:var(--panel2);min-height:0}
+.railhead{padding:12px 14px 8px;border-bottom:1px solid var(--line)}
+.railhead .eyebrow{margin-bottom:2px}
+.railhead small{font-size:.825rem;color:var(--faint)}
+.runlist{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.runcard{display:block;text-align:left;width:100%;padding:11px 14px;border-bottom:1px solid var(--line);
+  cursor:pointer;position:relative;transition:background .12s}
+.runcard:hover{background:#ffffff06}
+.runcard.sel{background:var(--accent-soft)}
+.runcard.sel::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--accent)}
+.rc-top{display:flex;align-items:center;gap:7px;margin-bottom:3px}
+.rc-state{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.rc-state.complete{background:var(--ok)}
+.rc-state.ready{background:transparent;border:1.6px solid var(--accent)}
+.rc-state.weaving{background:var(--ok);animation:pulse 1.1s infinite}
+.rc-state.gate{background:var(--warn);animation:pulse 1.1s infinite}
+.rc-state.halted{background:var(--warn)}
+.rc-state.queued{background:transparent;border:1.6px dashed var(--faint)}
+@keyframes pulse{50%{opacity:.35}}
+.rc-id{font-family:var(--mono);font-size:.825rem;font-weight:600}
+.rc-tok{margin-left:auto;font-family:var(--mono);font-size:.80625rem;color:var(--faint)}
+.rc-title{font-size:.8625rem;color:var(--muted);line-height:1.35;margin-bottom:4px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.runcard.sel .rc-title{color:var(--text)}
+.rc-meta{font-family:var(--mono);font-size:.7875rem;color:var(--faint)}
+.rc-meta .hint{color:var(--c-mem)}
+.railfoot{border-top:1px solid var(--line);padding:10px 14px;font-family:var(--mono);font-size:.825rem;color:var(--muted)}
+.railfoot b{color:var(--text)}
+.railfoot small{display:block;font-family:var(--sans);font-size:.7875rem;color:var(--faint);margin-top:3px}
+
+/* ---------- stage ---------- */
+.stage{display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--line)}
+.stagebar{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.eyebrow{font-size:.7875rem;letter-spacing:.22em;color:var(--muted);text-transform:uppercase}
+.runtitle{font-size:.88125rem;color:var(--text)}
+.runtitle b{font-family:var(--mono);font-size:.825rem;color:var(--accent);margin-right:6px}
+.legend{display:flex;gap:10px;margin-left:auto;flex-wrap:wrap}
+.lg{display:flex;align-items:center;gap:5px;font-size:.7875rem;color:var(--muted)}
+.lg i{width:14px;height:2px;border-radius:2px;display:inline-block}
+.weavewrap{flex:1;overflow:auto;position:relative;background:
+  radial-gradient(1200px 400px at 30% -10%, #17202b55, transparent 60%)}
+.weavewrap.fade #weave{opacity:0}
+#weave{display:block;transition:opacity .15s}
+.stageempty{position:absolute;inset:0;display:none;place-items:center;padding:30px;text-align:center}
+.stageempty.show{display:grid}
+.stageempty .box{max-width:380px;color:var(--muted);font-size:.9rem;line-height:1.6}
+.stageempty .box b{color:var(--text)}
+.stageempty .glyph{font-family:var(--mono);font-size:1.2375rem;color:var(--faint);margin-bottom:10px}
+.threadlabel{font-family:var(--mono);font-size:.7875rem;fill:var(--muted);cursor:pointer}
+.threadlabel:hover{fill:var(--text)}
+.grouplabel{font-size:.75rem;letter-spacing:.2em;fill:var(--faint)}
+.thread{stroke:#2a3440;stroke-width:1.5}
+.thread.dormant{stroke:#1d2530;stroke-dasharray:2 5}
+.thread.file{stroke:#243040;stroke-dasharray:1 4}
+.headglow{opacity:0;transition:opacity .2s;cursor:pointer}
+.node-dot{fill:var(--bg);stroke-width:1.6}
+.evtg{transition:opacity .15s}
+.evtg.dimmed{opacity:.07}
+.thread.dimmed,.threadlabel.dimmed,.headglow.dimmed{opacity:.12!important}
+.weft{fill:none;stroke-width:1.6;opacity:0;transition:opacity .15s,stroke-width .1s}
+.weft.set{opacity:.5}
+.evtg:hover .weft.set{opacity:.95;stroke-width:2.4}
+.evtg:hover .node-dot{stroke-width:2.4}
+.weft.sel{opacity:1;stroke-width:2.6;filter:drop-shadow(0 0 5px currentColor)}
+.pulse{filter:drop-shadow(0 0 6px currentColor)}
+.evt-hit{cursor:pointer;stroke:transparent;stroke-width:14;fill:none}
+.gateband{stroke:var(--warn);stroke-width:1.4;stroke-dasharray:7 5;opacity:.85}
+.gateband.waiting{animation:march 1s linear infinite}
+@keyframes march{to{stroke-dashoffset:-12}}
+.gatetag{font-family:var(--mono);font-size:.75rem;fill:var(--warn);letter-spacing:.12em}
+.haltband{stroke:var(--warn);stroke-width:3;opacity:.9}
+.halttag{font-family:var(--mono);font-size:.7875rem;fill:var(--warn);font-weight:700;letter-spacing:.14em}
+.failx{stroke:var(--fail);stroke-width:2;stroke-linecap:round}
+
+/* floating tooltip */
+.tip{position:fixed;z-index:50;display:none;max-width:280px;pointer-events:none;
+  background:#1b222b;border:1px solid var(--line);border-radius:7px;padding:8px 10px;
+  font-family:var(--mono);font-size:.80625rem;line-height:1.55;color:var(--muted);
+  box-shadow:0 6px 22px #00000070}
+.tip b{color:var(--text)}
+.tip .trow{display:flex;justify-content:space-between;gap:14px}
+.tip .trow span:last-child{color:var(--text)}
+
+.layerstrip{display:flex;gap:6px;padding:8px 14px;border-top:1px solid var(--line);overflow-x:auto;flex-shrink:0;align-items:center}
+.lchip{font-family:var(--mono);font-size:.7875rem;color:var(--faint);border:1px solid var(--line);
+  border-radius:5px;padding:3px 7px;white-space:nowrap;transition:all .15s;cursor:pointer}
+.lchip:hover{color:var(--muted);border-color:var(--faint)}
+.lchip.hot{color:var(--text);border-color:var(--accent);background:var(--accent-soft)}
+.lchip.filt{color:#0b1220;background:var(--accent);border-color:var(--accent);font-weight:700}
+.lhint{font-size:.7875rem;color:var(--faint);margin-left:auto;white-space:nowrap}
+
+.caption{min-height:44px;padding:10px 14px;border-top:1px solid var(--line);
+  font-size:.88125rem;color:var(--muted);line-height:1.45;background:var(--panel2);flex-shrink:0}
+.caption b{color:var(--text);font-weight:600}
+.caption .cwho{font-family:var(--mono);font-size:.825rem;padding:1px 6px;border-radius:4px;margin-right:6px}
+
+.gate{display:none;align-items:center;gap:12px;padding:10px 14px;flex-shrink:0;
+  border-top:1px solid var(--warn);background:linear-gradient(90deg,#3a2c10,#161c23)}
+.gate.show{display:flex}
+.gate .gicon{width:26px;height:26px;border-radius:6px;border:1px solid var(--warn);
+  display:grid;place-items:center;color:var(--warn);font-family:var(--mono);font-size:.8625rem;flex-shrink:0}
+.gate .gtxt{font-size:.8625rem;line-height:1.4;color:var(--text)}
+.gate .gtxt small{display:block;color:var(--muted);font-size:.825rem}
+.gbtn{font-size:.8625rem;font-weight:600;border-radius:6px;padding:7px 14px;white-space:nowrap}
+.gbtn.ok{background:var(--accent);color:#fff}
+.gbtn.no{border:1px solid var(--line);color:var(--muted)}
+.gbtn.no:hover{color:var(--fail);border-color:var(--fail)}
+
+/* ---------- right rail ---------- */
+.rail{display:flex;flex-direction:column;min-height:0;background:var(--panel2)}
+.tabs{display:flex;border-bottom:1px solid var(--line);flex-shrink:0}
+.tab{flex:1;padding:10px 4px;font-size:.825rem;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);border-bottom:2px solid transparent}
+.tab.on{color:var(--text);border-bottom-color:var(--accent)}
+.pane{display:none;overflow-y:auto;padding:14px;flex:1;min-height:120px}
+.pane.on{display:block}
+
+.wgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.wcell{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 10px}
+.wcell.wide{grid-column:1/-1}
+.wlabel{font-size:.75rem;letter-spacing:.22em;color:var(--faint);text-transform:uppercase;margin-bottom:5px}
+.wval{font-size:.88125rem;line-height:1.4}
+.wval .mono{font-family:var(--mono);font-size:.84375rem}
+.chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:.825rem;
+  border-radius:5px;padding:2px 7px;background:#00000030}
+.chip i{width:7px;height:7px;border-radius:50%}
+.badge{display:inline-block;font-family:var(--mono);font-size:.7875rem;border-radius:4px;padding:2px 6px;font-weight:600}
+.badge.pass{background:#123320;color:var(--ok)}
+.badge.fail{background:#3a1518;color:var(--fail)}
+.badge.blocked{background:#3a2c10;color:var(--warn)}
+.badge.info{background:var(--accent-soft);color:#9cc2ff}
+.rulechip{font-family:var(--mono);font-size:.7875rem;color:var(--warn);border:1px solid #4a3a14;
+  border-radius:4px;padding:2px 6px;background:#241c08}
+.parentlink,.xreflink{font-family:var(--mono);font-size:.80625rem;color:var(--accent);cursor:pointer;text-decoration:underline dotted}
+.xreflink{color:var(--c-mem)}
+.justcell{border-left:3px solid var(--accent);background:#131b28;border-radius:0 8px 8px 0}
+.justcell .wlabel{color:#6f93c8}
+.thought{border-left:3px solid var(--c-llm);background:#1a1626;border-radius:0 8px 8px 0;
+  padding:9px 11px;font-size:.8625rem;color:#cfc6ec;line-height:1.5;font-style:italic}
+.thought .wlabel{color:#8d7fc0}
+.tokrow{display:flex;gap:8px}
+.tok{flex:1;text-align:center;background:#00000025;border-radius:6px;padding:7px 4px}
+.tok b{display:block;font-family:var(--mono);font-size:.9rem}
+.tok span{font-size:.75rem;letter-spacing:.14em;color:var(--faint);text-transform:uppercase}
+.modelnote{margin-top:7px;font-family:var(--mono);font-size:.80625rem;color:var(--c-llm)}
+.empty{color:var(--faint);font-size:.88125rem;line-height:1.6;padding:8px 2px}
+
+.meterhead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.mrow{display:grid;grid-template-columns:118px 1fr 74px;gap:8px;align-items:center;margin-bottom:7px;
+  border-radius:5px;padding:2px 3px;cursor:default}
+.mrow:hover{background:#ffffff07}
+.mname{font-family:var(--mono);font-size:.825rem;display:flex;align-items:center;gap:6px;overflow:hidden}
+.mname i{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.mname span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mbar{height:12px;border-radius:3px;background:#0c1014;overflow:hidden;display:flex}
+.mbar .in{background:var(--accent)}
+.mbar .out{background:#eef3fa}
+.mnum{font-family:var(--mono);font-size:.825rem;color:var(--muted);text-align:right}
+.msub{font-size:.7875rem;color:var(--faint);margin:12px 0 6px;letter-spacing:.16em;text-transform:uppercase}
+.mtotal{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.84375rem;
+  color:var(--muted);border-top:1px solid var(--line);padding-top:9px;margin-top:9px}
+.mtotal b{color:var(--text)}
+
+.grsec{margin-bottom:16px}
+.grtitle{font-size:.7875rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.grnote{font-size:.825rem;color:var(--faint);line-height:1.5;margin-bottom:9px}
+.grule{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);
+  border-radius:8px;padding:9px 11px;margin-bottom:7px}
+.grule .gname{flex:1;font-size:.8625rem;line-height:1.35}
+.grule .gname small{display:block;font-family:var(--mono);font-size:.7875rem;color:var(--faint)}
+.lock{font-family:var(--mono);font-size:.75rem;color:var(--warn);border:1px solid #4a3a14;
+  border-radius:4px;padding:2px 5px;background:#241c08;flex-shrink:0}
+.slider{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:.825rem;color:var(--muted)}
+.slider input{width:90px;accent-color:var(--accent)}
+.amend{border:1px dashed var(--warn);border-radius:8px;padding:10px 11px;margin-top:8px;background:#1c1810}
+.amend .ah{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.amend .ah b{font-size:.84375rem;color:var(--warn)}
+.amend p{font-size:.825rem;color:var(--muted);line-height:1.5}
+.amend .abtns{display:flex;gap:8px;margin-top:8px}
+.abtn{font-size:.825rem;border:1px solid var(--line);border-radius:5px;padding:4px 10px;color:var(--muted)}
+.abtn:hover{color:var(--text);border-color:var(--faint)}
+.flash{animation:flash .8s ease}
+@keyframes flash{0%{background:#2a3a20}100%{background:#1c1810}}
+
+.feedwrap{border-top:1px solid var(--line);display:flex;flex-direction:column;height:var(--h-feed,34%);min-height:110px;flex-shrink:0}
+.feedhead{display:flex;justify-content:space-between;align-items:center;padding:8px 14px 6px}
+.feed{flex:1;overflow-y:auto;padding:0 8px 10px;font-family:var(--mono);font-size:.825rem}
+.frow{display:grid;grid-template-columns:52px 1fr 56px;gap:8px;align-items:baseline;
+  padding:4px 6px;border-radius:5px;cursor:pointer;line-height:1.45;transition:opacity .15s}
+.frow:hover{background:#ffffff08}
+.frow.sel{background:var(--accent-soft)}
+.frow.dim{opacity:.28}
+.frow .fts{color:var(--faint);font-size:.7875rem}
+.frow .ftx{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.frow .ftk{color:var(--faint);text-align:right;font-size:.7875rem}
+.frow .act.fail{color:var(--fail)}
+.frow .act.block{color:var(--warn)}
+
+@media (prefers-reduced-motion:reduce){
+  .weft,#weave,.sw::after,.evtg,.frow{transition:none}
+  .rc-state.weaving,.rc-state.gate,.gateband.waiting{animation:none}
+}
+
+/* ---------- v4: themed scrollbars ---------- */
+*{scrollbar-width:thin;scrollbar-color:#2f3a47 transparent}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#2a3440;border-radius:99px;border:2px solid var(--panel2)}
+::-webkit-scrollbar-thumb:hover{background:#3d4a5a}
+::-webkit-scrollbar-corner{background:transparent}
+
+/* ---------- v4: header controls ---------- */
+.hbtn{font-family:var(--mono);font-size:.825rem;border:1px solid var(--line);border-radius:6px;
+  background:var(--panel);color:var(--muted);height:28px;padding:0 10px;white-space:nowrap}
+.hbtn:hover{color:var(--text);border-color:var(--faint)}
+.fontctl{display:flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:6px;background:var(--panel);height:28px;padding:0 2px}
+.fontctl button{width:26px;height:24px;border-radius:4px;color:var(--muted);font-size:.8625rem;font-family:var(--mono)}
+.fontctl button:hover{color:var(--text);background:#ffffff0a}
+.fontctl b{font-family:var(--mono);font-size:.7875rem;color:var(--faint);min-width:30px;text-align:center}
+select.projsel{font-family:var(--mono);font-size:.825rem;background:var(--panel);color:var(--muted);
+  border:1px solid var(--line);border-radius:6px;height:28px;padding:0 6px;max-width:190px}
+select.projsel:hover{color:var(--text);border-color:var(--faint)}
+body.home-mode main{display:none}
+body.home-mode .transport,body.home-mode .odometer,body.home-mode .learn,body.home-mode .sesschip{display:none}
+body:not(.home-mode) #home{display:none}
+
+/* ---------- v4: causal connectors ---------- */
+.cause-in{fill:none;stroke:var(--c-human);stroke-width:1.5;opacity:.9}
+.cause-out{fill:none;stroke:var(--faint);stroke-width:1.2;stroke-dasharray:4 4;opacity:.75}
+.cause-all{fill:none;stroke:var(--faint);stroke-width:1;stroke-dasharray:2 4;opacity:.4}
+.cause-dim{opacity:.06}
+.cchip{font-family:var(--mono);font-size:.7875rem;color:var(--faint);border:1px solid var(--line);
+  border-radius:5px;padding:3px 7px;white-space:nowrap;cursor:pointer;transition:all .15s}
+.cchip:hover{color:var(--muted);border-color:var(--faint)}
+.cchip.all{color:var(--text);border-color:var(--c-human);background:#ffffff0d}
+
+/* ---------- v4: glossary overlay ---------- */
+.glossback{position:fixed;inset:0;display:none;z-index:60;background:#0a0e12b8;padding:26px}
+.glossback.show{display:grid;place-items:start center}
+.gloss{max-width:560px;width:100%;max-height:100%;overflow-y:auto;background:var(--panel);
+  border:1px solid var(--line);border-radius:12px;padding:18px 20px;box-shadow:0 14px 50px #000000a0}
+.gloss .gk{font-family:var(--mono);font-size:.7875rem;color:var(--warn);letter-spacing:.14em;text-transform:uppercase}
+.gloss h3{font-size:1rem;margin:4px 0 2px;color:var(--text)}
+.gloss .gsrc{font-family:var(--mono);font-size:.7875rem;color:var(--faint);margin-bottom:10px}
+.gloss p{font-size:.8625rem;color:var(--muted);line-height:1.6;margin-bottom:9px}
+.gloss .gsec{font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);margin:12px 0 6px}
+.gloss .grel{display:flex;flex-wrap:wrap;gap:6px}
+.gloss .gcite{display:block;text-align:left;width:100%;font-family:var(--mono);font-size:.7875rem;color:var(--muted);
+  padding:5px 8px;border:1px solid var(--line);border-radius:6px;margin-bottom:5px;cursor:pointer}
+.gloss .gcite:hover{color:var(--text);border-color:var(--accent)}
+.gloss .gclose{float:right;color:var(--faint);font-size:.9375rem;padding:2px 8px}
+.gloss .gclose:hover{color:var(--text)}
+.glossable{cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px}
+.glossable:hover{filter:brightness(1.3)}
+
+/* ---------- v4: home / portfolio overview ---------- */
+#home{height:calc(100% - 52px);overflow-y:auto;padding:26px clamp(16px,4vw,54px) 60px}
+.hwrap{max-width:1180px;margin:0 auto}
+.hsec{margin-bottom:26px}
+.hgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.icard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.icard .wlabel{margin-bottom:6px}
+.icard b{font-family:var(--mono);font-size:1.05rem;color:var(--text)}
+.icard small{display:block;font-size:.7875rem;color:var(--faint);margin-top:4px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.pcard{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;
+  cursor:pointer;transition:border-color .15s,background .15s;position:relative}
+.pcard:hover{border-color:var(--accent);background:#182030}
+.pcard .ptop{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.pcard .pname{font-size:.9375rem;font-weight:600;color:var(--text)}
+.pcard .pstage{font-family:var(--mono);font-size:.7875rem;border-radius:4px;padding:2px 7px;margin-left:auto;flex-shrink:0}
+.pcard .pdesc{font-size:.8625rem;color:var(--muted);line-height:1.5;margin-bottom:10px;min-height:2.9em}
+.pcard .pstats{display:grid;grid-template-columns:1fr 1fr;gap:5px 12px;font-family:var(--mono);font-size:.7875rem;color:var(--faint)}
+.pcard .pstats b{color:var(--text);font-weight:600}
+.pcard .plast{border-top:1px solid var(--line);margin-top:10px;padding-top:8px;font-family:var(--mono);font-size:.7875rem;color:var(--faint);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.pcard .lastopen{position:absolute;top:-8px;right:12px;font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;
+  background:var(--accent-soft);color:#9cc2ff;border:1px solid var(--accent);border-radius:99px;padding:1px 8px}
+.stg-planning{background:#242b38;color:#9fb2cc}.stg-design{background:#211a33;color:#b9a5f0}
+.stg-development{background:#0f2a3a;color:#5fc6e8}.stg-testing{background:#241c08;color:var(--warn)}
+.stg-deployment{background:#123320;color:var(--ok)}.stg-maintenance{background:#1c242e;color:#8fa3ba}
+.chartrow{display:grid;grid-template-columns:132px 1fr 60px;gap:8px;align-items:center;margin-bottom:6px;border-radius:5px;padding:2px 3px}
+.chartrow:hover{background:#ffffff07}
+.hpanel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.h2col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:860px){.h2col{grid-template-columns:1fr}}
+.pattern{border-left:3px solid var(--c-mem);background:#10202a;border-radius:0 8px 8px 0;padding:9px 12px;margin-bottom:8px}
+.pattern b{color:var(--text);font-size:.8625rem}
+.pattern p{font-size:.8625rem;color:var(--muted);line-height:1.5;margin-top:2px}
+details.hset{background:var(--panel);border:1px solid var(--line);border-radius:12px}
+details.hset>summary{cursor:pointer;padding:13px 16px;font-size:.7875rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);list-style:none;display:flex;align-items:center;gap:8px}
+details.hset>summary::before{content:"▸";color:var(--faint);transition:transform .15s}
+details.hset[open]>summary::before{transform:rotate(90deg)}
+details.hset .hsetbody{padding:2px 16px 16px;border-top:1px solid var(--line)}
+.setrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:9px 0}
+.setrow label{font-size:.8625rem;color:var(--muted);min-width:150px}
+.setin{font-family:var(--mono);font-size:.825rem;background:var(--bg);color:var(--text);
+  border:1px solid var(--line);border-radius:6px;padding:5px 8px;width:110px}
+.setin:focus{outline:2px solid var(--accent);outline-offset:1px}
+.setin.wide{width:230px}
+table.rates{border-collapse:collapse;width:100%;margin-top:6px}
+table.rates th{font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);text-align:left;padding:4px 8px;border-bottom:1px solid var(--line)}
+table.rates td{padding:4px 8px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:.7875rem;color:var(--muted)}
+table.rates input{width:74px}
+.provrow{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 11px;margin-bottom:7px;flex-wrap:wrap}
+.provrow .pvname{font-size:.8625rem;color:var(--text);min-width:100px}
+.keymask{font-family:var(--mono);font-size:.7875rem;color:var(--faint)}
+.keyok{color:var(--ok)}
+.ovchip{font-family:var(--mono);font-size:.7rem;color:#9cc2ff;background:var(--accent-soft);border:1px solid var(--accent);
+  border-radius:4px;padding:1px 6px;cursor:pointer}
+.ovchip:hover{filter:brightness(1.25)}
+.tierrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 11px;margin-bottom:7px}
+.tierrow .tname{font-family:var(--mono);font-size:.825rem;color:var(--text);min-width:88px}
+.tierrow select{font-family:var(--mono);font-size:.7875rem;background:var(--bg);color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:3px 5px;max-width:150px}
+.tierrow .arr{color:var(--faint);font-size:.7875rem}
+.budgetbar{position:relative;height:14px;border-radius:4px;background:#0c1014;overflow:visible;margin:8px 0 4px}
+.budgetbar .fill{height:100%;border-radius:4px;background:var(--c-mem)}
+.budgetbar .fill.warn80{background:var(--warn)}
+.budgetbar .fill.over{background:var(--fail)}
+.budgetbar .mk{position:absolute;top:-3px;bottom:-3px;width:2px}
+.budgetbar .mk.m80{background:var(--warn);left:80%}
+.budgetbar .mk.m100{background:var(--fail);left:100%}
+.polprev{font-family:var(--mono);font-size:.7875rem;color:var(--muted);background:#10202a;border-left:3px solid var(--c-mem);border-radius:0 8px 8px 0;padding:8px 11px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><b>LOOM</b><span>OBSERVATORY · L9</span></div>
+  <div class="sesschip" id="sesschip">session <b>prism-chat-07</b></div>
+  <div class="status"><span class="dot" id="statusdot"></span><span id="statustxt">idle</span></div>
+  <div class="spacer"></div>
+  <button class="hbtn" id="btn-home" title="Portfolio overview">HOME</button>
+  <select class="projsel" id="projsel" title="Switch project" aria-label="Switch project"></select>
+  <div class="fontctl" title="Text size (applies everywhere, saved globally)">
+    <button id="fs-dn" aria-label="Smaller text">A−</button><b id="fs-val">16</b><button id="fs-up" aria-label="Larger text">A+</button>
+  </div>
+  <label class="learn" title="Plain-language narration of every event">
+    LEARN MODE <span class="sw on" id="learnsw" role="switch" aria-checked="true" tabindex="0"></span>
+  </label>
+  <div class="transport">
+    <button class="tbtn" id="btn-reset" title="Reset run (R)"><svg viewBox="0 0 16 16"><path d="M8 3a5 5 0 1 0 5 5h-2a3 3 0 1 1-3-3v3l4-4-4-4v3z"/></svg></button>
+    <button class="tbtn" id="btn-back" title="Step back (←)"><svg viewBox="0 0 16 16"><path d="M11 2v12L4 8l7-6zM3 2h2v12H3z"/></svg></button>
+    <button class="tbtn primary" id="btn-play" title="Play / pause (Space)"><svg viewBox="0 0 16 16" id="playicon"><path d="M4 2l10 6-10 6V2z"/></svg></button>
+    <button class="tbtn" id="btn-fwd" title="Step forward (→)"><svg viewBox="0 0 16 16"><path d="M5 2v12l7-6-7-6zM11 2h2v12h-2z"/></svg></button>
+    <button class="speed" id="btn-speed" title="Playback speed">1×</button>
+  </div>
+  <div class="odometer">RUN TOKENS <b id="odo">0</b></div>
+</header>
+
+<div id="home"><div class="hwrap">
+  <div class="hsec"><div class="eyebrow" style="margin-bottom:10px">Portfolio — all projects</div><div class="hgrid" id="hm-insights"></div></div>
+  <div class="hsec"><div class="eyebrow" style="margin-bottom:10px">Projects</div><div class="pgrid" id="hm-projects"></div></div>
+  <div class="hsec h2col">
+    <div class="hpanel"><div class="eyebrow" style="margin-bottom:10px">Agent usage — all projects</div>
+      <div class="grnote">Events involving each agent, portfolio-wide. Hover a bar for the per-project breakdown.</div>
+      <div id="hm-agents"></div></div>
+    <div class="hpanel"><div class="eyebrow" style="margin-bottom:10px">Governance citations</div>
+      <div class="grnote">Which kernel rules and ADRs the trace records cite most, across every project. Click a name for its glossary entry.</div>
+      <div id="hm-gov"></div></div>
+  </div>
+  <div class="hsec"><div class="hpanel"><div class="eyebrow" style="margin-bottom:10px">Patterns across projects</div>
+    <div class="grnote">Computed by counting trace records — recurring failure classes, lesson reuse, and gate outcomes. Free-text theme discovery is an LLM job for the cloud version (backlog).</div>
+    <div id="hm-patterns"></div></div></div>
+  <div class="hsec"><details class="hset" id="hm-settings"><summary>Top-level settings — defaults every project inherits</summary>
+    <div class="hsetbody" id="hm-setbody"></div></details></div>
+</div></div>
+
+<main>
+  <nav class="runrail" aria-label="Runs in this session">
+    <div class="railhead">
+      <div class="eyebrow">Runs</div>
+      <small>one per prompt → response exchange</small>
+    </div>
+    <div class="runlist" id="runlist"></div>
+    <div class="railfoot">
+      <div style="display:flex;justify-content:space-between"><span>project total</span><b id="sesstotal">0</b></div>
+      <small>tokens across all runs · [ and ] switch runs</small>
+    </div>
+  </nav>
+  <div class="gutter v" id="h1" role="separator" aria-orientation="vertical" aria-label="Resize run rail" tabindex="0" title="Drag to resize · double-click to reset"></div>
+
+  <section class="stage">
+    <div class="stagebar">
+      <span class="runtitle" id="runtitle"><b>—</b>select a run</span>
+      <div class="legend">
+        <span class="lg"><i style="background:var(--e-gov)"></i>governance</span>
+        <span class="lg"><i style="background:var(--e-llm)"></i>llm</span>
+        <span class="lg"><i style="background:var(--e-mem)"></i>memory</span>
+        <span class="lg"><i style="background:var(--e-read)"></i>read</span>
+        <span class="lg"><i style="background:var(--e-write)"></i>write</span>
+        <span class="lg"><i style="background:var(--e-block)"></i>blocked</span>
+        <span class="lg"><i style="background:var(--e-human)"></i>human</span>
+      </div>
+    </div>
+    <div class="weavewrap" id="weavewrap">
+      <svg id="weave" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="stageempty" id="stageempty"><div class="box">
+        <div class="glyph">· · ·</div>
+        <b>Run 043 hasn't started.</b><br>
+        A run opens the moment your next prompt reaches the Supervisor (task_submitted) and closes at session_end. When it does, its weave appears here in real time — and this card flips from queued to weaving.
+      </div></div>
+    </div>
+    <div class="layerstrip" id="layerstrip"></div>
+    <div class="caption" id="caption"></div>
+    <div class="gate" id="gate">
+      <div class="gicon glossable" data-gl="R19" style="cursor:pointer" title="Rule 19 — open glossary">R19</div>
+      <div class="gtxt"><b>Human approval required.</b> redaction-smith wants to write <span style="font-family:var(--mono)">observatory/lib/redactor.mjs</span> (destructive-op rule).
+      <small>Kernel Rule 19: no destructive change proceeds without a recorded human decision. Your click is written to update-bus/inbox — the Observatory's only write path.</small></div>
+      <div class="spacer"></div>
+      <button class="gbtn ok" id="gate-approve">Approve write</button>
+      <button class="gbtn no" id="gate-reject">Reject</button>
+    </div>
+  </section>
+  <div class="gutter v" id="h2" role="separator" aria-orientation="vertical" aria-label="Resize right rail" tabindex="0" title="Drag to resize · double-click to reset"></div>
+
+  <aside class="rail">
+    <div class="tabs" role="tablist">
+      <button class="tab on" data-pane="inspector" role="tab">Inspector</button>
+      <button class="tab" data-pane="tokens" role="tab">Tokens</button>
+      <button class="tab" data-pane="guardrails" role="tab">Guardrails</button>
+    </div>
+
+    <div class="pane on" id="pane-inspector">
+      <div class="empty" id="insp-empty">Nothing selected yet.<br><br>The inspector answers six questions about any single event: <b style="color:var(--text)">who</b> acted, <b style="color:var(--text)">what</b> they did, <b style="color:var(--text)">where</b> (file + layer), <b style="color:var(--text)">when</b> and for how long, <b style="color:var(--text)">why</b> (intent + the rule or parent event that caused it, plus its justification), and <b style="color:var(--text)">how much</b> it cost in tokens.</div>
+      <div id="insp-body" style="display:none"></div>
+    </div>
+
+    <div class="pane" id="pane-tokens">
+      <div class="meterhead">
+        <span class="eyebrow" id="meterscope">Token meter — this run</span>
+        <span style="font-size:.7875rem;color:var(--faint);font-family:var(--mono)">in ▮ blue · out ▮ white</span>
+      </div>
+      <div id="meter"></div>
+      <div class="msub">Cache</div>
+      <div class="mrow"><span class="mname"><i style="background:var(--faint)"></i><span>cache reads</span></span>
+        <div class="mbar"><div class="in" id="cachebar" style="width:0%;background:var(--faint)"></div></div>
+        <span class="mnum" id="cachenum">0</span></div>
+      <div class="mtotal"><span>run total (in + out)</span><b id="metertotal">0</b></div>
+      <div class="mtotal" style="border-top:none;margin-top:2px;padding-top:2px"><span>approx. cost · example rates</span><b id="meterusd">$0.00</b></div>
+      <div class="grnote" style="margin-top:10px">Hover any bar for the per-model breakdown. Rolls up per-event trace records into the Cost projection (loop_cost_summary), scoped to the selected run; session totals live in the run rail footer. Per-model $ rates attach later — L9 open item PR-8.</div>
+    </div>
+
+    <div class="pane" id="pane-guardrails">
+      <div class="grsec">
+        <div class="grtitle">Kernel rules — constitutional</div>
+        <div class="grnote">These have no switch because they are not switchable — not from a dashboard, not from anywhere downstream. <b style="color:var(--text)">Propose amendment</b> drafts a proposal into update-bus/inbox for human review (Rule 19). Click a rule's name for its glossary entry.</div>
+        <div id="kernelrules"></div>
+        <div id="amendments"></div>
+      </div>
+      <div class="grsec">
+        <div class="grtitle">Local rules — this project's profile</div>
+        <div class="grnote">Inherited from the top-level defaults (home page). Editing here overrides for <b style="color:var(--text)" id="gr-projname">this project</b> only; changes write to <span style="font-family:var(--mono)">constitution/local-rules.md</span> and take effect on the next run.</div>
+        <div id="localrules"></div>
+      </div>
+      <div class="grsec">
+        <div class="grtitle">Models &amp; budget — this project's profile</div>
+        <div class="grnote">Which providers and models this project may use, its dollar allocation, and the fallback chains. Inherits top-level defaults; edits here override for this project. Rates and API keys live in the home page settings.</div>
+        <div id="modelcfg"></div>
+      </div>
+    </div>
+
+    <div class="gutter h" id="h3" role="separator" aria-orientation="horizontal" aria-label="Resize event feed" tabindex="0" title="Drag to resize · double-click to reset"></div>
+    <div class="feedwrap">
+      <div class="feedhead">
+        <span class="eyebrow">Event feed — name color = who acted</span>
+        <span style="font-family:var(--mono);font-size:.7875rem;color:var(--faint)" id="feedcount">0 events</span>
+      </div>
+      <div class="feed" id="feed" role="log" aria-live="polite"></div>
+    </div>
+  </aside>
+</main>
+
+<div class="glossback" id="glossback"><div class="gloss" id="gloss" role="dialog" aria-modal="true"></div></div>
+
+<div class="tip" id="tip"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   HIERARCHY  (matches OpenTelemetry / Langfuse exactly)
+     Session = one conversation           (session_id)
+     Run     = one prompt→response cycle  (trace_id / run_id)
+     Event   = one traced action          (span_id)
+   Run boundary: opens at task_submitted, closes at session_end.
+
+   TRACE RECORD SCHEMA the runtime must emit (Rule-22 v2):
+     actor, action, target, layer, run_id,
+     intent        — WHY, one line, mandatory
+     justification — the fuller case: rule basis, expected
+                     outcome, alternatives rejected
+     trigger       — {rule, parent} causal chain
+     thought       — LLM reasoning summary (model calls only)
+     model         — model id + version, when a model produced
+                     the output (incl. embedding models)
+     tokens        — {in, out, cache}; `in` grows across a run
+                     because agent loops re-send accumulated
+                     context — this is why runs reach millions
+   WIRING: const es=new EventSource('/events');  // SSE :4040
+           es.onmessage=m=>ingest(JSON.parse(m.data));
+   ============================================================ */
+
+/* ---------------- threads ---------------- */
+const THREADS = [
+  {id:"nick",   label:"you",              group:"HUMAN",   color:"var(--c-human)"},
+  {id:"sup",    label:"supervisor",       group:"L5 ORCH", color:"var(--c-sup)"},
+  {id:"cs",     label:"constitution-svc", group:"WARP · BASE AGENTS", color:"var(--c-cs)"},
+  {id:"hr",     label:"hr-agent",         group:"WARP · BASE AGENTS", color:"var(--c-hr)"},
+  {id:"eac",    label:"eac",              group:"WARP · BASE AGENTS", color:"var(--c-eac)"},
+  {id:"critic", label:"critic",           group:"WARP · BASE AGENTS", color:"var(--c-critic)"},
+  {id:"mem",    label:"memory-keeper",    group:"WARP · BASE AGENTS", color:"var(--c-mem)"},
+  {id:"rep",    label:"human-replica",    group:"WARP · BASE AGENTS", color:"var(--c-rep)", dormant:true},
+  {id:"smith",  label:"specialist",       group:"WEFT · SPECIALIST", color:"var(--c-smith)", hidden:true},
+  {id:"llm",    label:"llm",              group:"ENGINE",  color:"var(--c-llm)"},
+  {id:"script", label:"scripts / tools",  group:"ENGINE",  color:"var(--c-script)"},
+  {id:"f_const",label:"constitution/",    group:"LIBRARY · FILES", color:"var(--c-file)", file:true},
+  {id:"f_adr",  label:"adr/",             group:"LIBRARY · FILES", color:"var(--c-file)", file:true},
+  {id:"f_mem",  label:"memory/",          group:"LIBRARY · FILES", color:"var(--c-file)", file:true},
+  {id:"f_led",  label:"orchestration/",   group:"LIBRARY · FILES", color:"var(--c-file)", file:true},
+  {id:"f_bus",  label:"update-bus/",      group:"LIBRARY · FILES", color:"var(--c-file)", file:true},
+  {id:"f_ws",   label:"workspace",        group:"LIBRARY · FILES", color:"var(--c-file)", file:true},
+];
+const T=Object.fromEntries(THREADS.map(t=>[t.id,t]));
+const KIND={nick:"human",sup:"supervisor",cs:"agent",hr:"agent",eac:"agent",critic:"agent",
+  mem:"agent",rep:"agent",smith:"specialist",llm:"llm",script:"script"};
+
+/* ---------------- run 041 events ---------------- */
+const R41=[
+{id:"evt-041-01",ts:"09:11:40.210",from:"nick",to:"sup",cls:"human",action:"task_submitted",layer:"L5",
+ target:"orchestration/task-ledger.md",
+ intent:"Run 041: scrub device identifiers from network-capture logs before OTLP export",
+ just:"Human prompts are the only legitimate entry point for work (Magentic-One pattern): nothing runs unsolicited, so every run's causal chain roots in a person.",
+ trigger:{rule:null,parent:null},tokens:{in:940,out:0,cache:0},dur:180,verdict:null,
+ cap:"An earlier prompt from <b>you</b> opened run 041. Same lifecycle, different task — this is the run where a painful lesson gets learned."},
+{id:"evt-041-02",ts:"09:11:40.520",from:"sup",to:"f_led",cls:"ledger",action:"ledger_write",layer:"L5",
+ target:"orchestration/task-ledger.md",
+ intent:"Register task 041 before any work starts",
+ just:"Rule 22 requires the paper trail to exist before execution, not after — a crash between registration and work still leaves a recoverable record.",
+ trigger:{rule:"Kernel R22",parent:"evt-041-01"},tokens:{in:0,out:38,cache:0},dur:120,verdict:"pass",
+ cap:"Ledger first, always. Every run's paper trail starts at the same place."},
+{id:"evt-041-03",ts:"09:11:40.810",from:"sup",to:"cs",cls:"gov",action:"constitution_check_request",layer:"L0",
+ target:"agents/constitution-service",
+ intent:"Pre-flight: verify the task is permissible before routing",
+ just:"Checking permissibility before spending routing tokens is cheaper than unwinding disallowed work later; governance-first ordering is a kernel invariant, not a style choice.",
+ trigger:{rule:"kernel pre-flight",parent:"evt-041-01"},tokens:{in:0,out:0,cache:0},dur:90,verdict:null,
+ cap:"Governance runs first in every run — the check is structural, not optional."},
+{id:"evt-041-04",ts:"09:11:41.100",from:"cs",to:"f_const",cls:"read",action:"file_read",layer:"L0",
+ target:"constitution/kernel-v6.md",
+ intent:"Load Kernel V6 rules relevant to log-scrubbing writes",
+ just:"The Constitution Service never rules from memory of the rules — it re-reads the canonical file each check, so an amended kernel takes effect immediately. Prompt caching keeps the repeat cost near zero.",
+ trigger:{rule:"Kernel R22",parent:"evt-041-03"},tokens:{in:2100,out:0,cache:448000},dur:320,verdict:"pass",
+ cap:"Kernel check — mostly cache reads, as usual."},
+{id:"evt-041-05",ts:"09:11:41.450",from:"cs",to:"sup",cls:"gov",action:"constitution_check_result",layer:"L0",
+ target:"—",
+ intent:"Report: permitted, destructive-op gate attached to the eventual write",
+ just:"Attaching the gate now, at check time, means the later write is intercepted mechanically rather than depending on any agent remembering to ask.",
+ trigger:{rule:"destructive-op rule",parent:"evt-041-04"},tokens:{in:0,out:460,cache:0},dur:110,verdict:"pass",
+ cap:"Permitted with the standard write gate attached."},
+{id:"evt-041-06",ts:"09:11:41.900",from:"sup",to:"llm",cls:"llm",action:"llm_call · routing",layer:"L5",
+ target:"model: routing loop",model:"claude-haiku-4-5",
+ intent:"Decide who handles netcap scrubbing",
+ just:"Routing is a classification problem, not a generation problem, so the cheap fast model is the right tool — reserving the expensive model for code work keeps run cost proportional to difficulty.",
+ trigger:{rule:null,parent:"evt-041-05"},
+ thought:"No specialist on roster for capture-log redaction. EAC should spawn one scoped to the netcap module and its eval suite.",
+ tokens:{in:128400,out:1240,cache:96500},dur:850,verdict:null,
+ cap:"Routing thought: spawn a specialist. Same pattern you'll see again in run 042. Note the input size — the routing call carries the whole run context so far."},
+{id:"evt-041-07",ts:"09:11:42.420",from:"sup",to:"eac",cls:"ok",action:"delegate",layer:"L2",
+ target:"agents/eac",
+ intent:"Hand the briefing to the EAC",
+ just:"The Supervisor is forbidden from executing work itself; agent creation is the EAC's exclusive competence, so delegation is the only legal move here.",
+ trigger:{rule:null,parent:"evt-041-06"},tokens:{in:2340,out:0,cache:0},dur:140,verdict:null,
+ cap:"Delegation to the agent-maker."},
+{id:"evt-041-08",ts:"09:11:42.980",from:"eac",to:"smith",cls:"ok",action:"specialist_spawned",layer:"L2",
+ target:"agents/specialists/netcap-smith/",model:"claude-sonnet-4-6",
+ intent:"Design and spawn netcap-smith for this one task",
+ just:"A fresh, narrowly-scoped specialist beats stretching a base agent: its SKILL.md limits it to the netcap module and its tests, so a misbehaving agent has a small blast radius (ADR-0012 spawn contract).",
+ trigger:{rule:null,parent:"evt-041-07"},
+ thought:"Scope: netcap module + eval suite only. No network. Decline anything outside capture-log redaction.",
+ tokens:{in:214600,out:4850,cache:0},dur:900,verdict:"pass",
+ cap:"A specialist thread appears: <b>netcap-smith</b>. Each run's weft specialist is fresh — only lessons persist between them."},
+{id:"evt-041-09",ts:"09:11:43.600",from:"smith",to:"f_ws",cls:"read",action:"file_read",layer:"L6",
+ target:"scripts/netcap-export.mjs",
+ intent:"Load the export module before proposing scrubbing changes",
+ just:"Patching a file it hasn't read would be guessing; loading the real source into context is the precondition for any honest code change.",
+ trigger:{rule:"Kernel R22",parent:"evt-041-08"},tokens:{in:46200,out:0,cache:0},dur:320,verdict:"pass",
+ cap:"Reading the target. Note there's no memory_query in this run — <b>no relevant lesson exists yet</b>. That's about to change."},
+{id:"evt-041-10",ts:"09:11:44.150",from:"smith",to:"llm",cls:"llm",action:"llm_call · generate patch",layer:"L6",
+ target:"model: code generation",model:"claude-opus-4-8",
+ intent:"Produce the device-ID scrubbing patch plus tests",
+ just:"Code generation on a live export path is the highest-stakes step of the run, so it gets the strongest model; the extra cost is justified by the price of a wrong patch shipping.",
+ trigger:{rule:null,parent:"evt-041-09"},
+ thought:"Scrub MACs, hostnames, IPv4 and IPv6 addresses from capture lines before export. Standard address regexes should cover it.",
+ tokens:{in:402800,out:9400,cache:118000},dur:1400,verdict:null,
+ cap:"The confident first patch. Watch the phrase <i>standard address regexes should cover it</i> — famous last words."},
+{id:"evt-041-11",ts:"09:11:45.700",from:"smith",to:"script",cls:"tool",action:"tool_call · run tests",layer:"L6",
+ target:"scripts/ → netcap eval (36 cases)",
+ intent:"Verify the patch against the netcap eval suite",
+ just:"Model confidence is not evidence; only the deterministic eval suite can promote a patch from plausible to verified, so tests run before any write is even proposed.",
+ trigger:{rule:null,parent:"evt-041-10"},tokens:{in:0,out:0,cache:0},dur:580,verdict:null,
+ cap:"Deterministic tests take over — the teal script thread."},
+{id:"evt-041-12",ts:"09:11:46.560",from:"script",to:"smith",cls:"fail",action:"tool_result · exit 1",layer:"L6",
+ target:"2 / 36 failing",
+ intent:"Report failure: link-local IPv6 with zone index (fe80::1%eth0) leaks through unredacted",
+ just:"Failures are reported verbatim and land in the Failures projection unfiltered — softening or summarizing away a red result would defeat the point of running tests.",
+ trigger:{rule:null,parent:"evt-041-11"},tokens:{in:3850,out:0,cache:0},dur:200,verdict:"fail",
+ cap:"<b>The original failure.</b> Zone-index addresses leak. This exact red thread is the ancestor of the lesson run 042 will consume."},
+{id:"evt-041-13",ts:"09:11:47.080",from:"smith",to:"llm",cls:"llm",action:"llm_call · fix",layer:"L6",
+ target:"model: code repair",model:"claude-sonnet-4-6",
+ intent:"Repair the pattern to cover zone-index suffixes",
+ just:"The failure is localized to one pattern, so a mid-tier model with the failing cases in context is sufficient — re-invoking the top model for a scoped repair would be spend without benefit.",
+ trigger:{rule:null,parent:"evt-041-12"},
+ thought:"The %zone suffix (fe80::1%eth0) isn't matched. Extend with optional %[A-Za-z0-9]+ group. This failure class is subtle enough that it should become a permanent lesson.",
+ tokens:{in:388200,out:6100,cache:301400},dur:950,verdict:null,
+ cap:"The fix — and the key sentence: <i>this should become a permanent lesson</i>. The agent is nominating its own mistake for memory."},
+{id:"evt-041-14",ts:"09:11:48.150",from:"smith",to:"script",cls:"tool",action:"tool_call · retest",layer:"L6",
+ target:"scripts/ → netcap eval (38 cases)",
+ intent:"Re-run with 2 new zone-index cases added",
+ just:"A fix without a regression test can silently un-fix later; expanding the suite makes the failure class permanently detectable.",
+ trigger:{rule:null,parent:"evt-041-13"},tokens:{in:0,out:0,cache:0},dur:540,verdict:null,
+ cap:"Retest with expanded coverage."},
+{id:"evt-041-15",ts:"09:11:48.940",from:"script",to:"smith",cls:"ok",action:"tool_result · exit 0",layer:"L6",
+ target:"38 / 38 passing",
+ intent:"All green — patch ready to propose",
+ just:"Green across the full suite, including the new cases, is the evidence threshold for proposing a write; nothing less reaches the gate.",
+ trigger:{rule:null,parent:"evt-041-14"},tokens:{in:1150,out:0,cache:0},dur:180,verdict:"pass",
+ cap:"Green. Ready to propose the write."},
+{id:"evt-041-16",ts:"09:11:49.480",from:"smith",to:"f_ws",cls:"block",action:"write_attempt · BLOCKED",layer:"L0",
+ target:"scripts/netcap-export.mjs",
+ intent:"Write intercepted by the destructive-op rule, escalated to the human gate",
+ just:"Interception is mechanical, attached at evt-05: the specialist's confidence and its green tests change nothing, because the rule binds regardless of how good the work looks.",
+ trigger:{rule:"destructive-op rule → Kernel R19",parent:"evt-041-05"},tokens:{in:0,out:0,cache:0},dur:240,verdict:"blocked",
+ cap:"Blocked at the wall — see the amber gate line across the weave. Consistency is the point: every write in every run stops here."},
+{id:"evt-041-17",ts:"09:11:49.800",from:"sup",to:"nick",cls:"human",action:"approval_request",layer:"L0",
+ target:"update-bus/inbox/",
+ intent:"Present the gate with diff and test results attached",
+ just:"Rule 19 requires an informed decision, not just a click — so the request bundles the diff, the eval results, and the scope so the human can judge in one look.",
+ trigger:{rule:"Kernel R19",parent:"evt-041-16"},tokens:{in:0,out:2400,cache:0},dur:200,verdict:null,
+ cap:"The decision went to you back at 09:11. History shows what you chose…"},
+{id:"evt-041-18",ts:"09:11:56.320",from:"nick",to:"f_bus",cls:"human",action:"decision · APPROVE",layer:"L7",
+ target:"update-bus/inbox/041-netcap-write.md → user_decision: approve",
+ intent:"Human approved — decision recorded in the Update Bus",
+ just:"Recording the decision (not just executing it) is what makes accountability durable: the audit trail names the approver and the moment, per Rule 19.",
+ trigger:{rule:"Kernel R19",parent:"evt-041-17"},tokens:{in:0,out:12,cache:0},dur:200,verdict:"pass",
+ cap:"…approve. Six and a half seconds of human thinking, recorded forever. Note the timestamp gap — human time is visible in the trace."},
+{id:"evt-041-19",ts:"09:11:56.760",from:"smith",to:"f_ws",cls:"write",action:"file_write",layer:"L6",
+ target:"scripts/netcap-export.mjs · +31 −4",
+ intent:"Apply the approved patch",
+ just:"The write executes only because every precondition is now on record: green tests, attached gates satisfied, human approval logged.",
+ trigger:{rule:null,parent:"evt-041-18"},tokens:{in:0,out:0,cache:0},dur:340,verdict:"pass",
+ cap:"The write lands."},
+{id:"evt-041-20",ts:"09:11:57.400",from:"mem",to:"f_mem",cls:"mem",action:"reconcile",layer:"L3",
+ target:"memory/event-log + self-knowledge",
+ intent:"End-of-run ritual: append episodic log, update self-knowledge",
+ just:"Reconciliation at run end (not continuously) keeps memory writes atomic per run — a run either lands in memory whole or not at all.",
+ trigger:{rule:"lifecycle: reconcile",parent:"evt-041-19"},tokens:{in:0,out:8400,cache:0},dur:380,verdict:"pass",
+ cap:"The Memory-Keeper files this run into memory."},
+{id:"evt-041-21",ts:"09:11:57.900",from:"mem",to:"f_mem",cls:"mem",action:"lesson_promoted",layer:"L3",
+ target:"lessons-learned/ipv6-zone-index.md",
+ intent:"Promote the failure into a durable lesson: always test IPv6 zone-index forms (%eth0)",
+ just:"Promotion criteria met: the failure was subtle, verified by tests, and generalizes beyond this file — exactly the class of mistake worth paying a few tokens to never repeat.",
+ trigger:{rule:null,parent:"evt-041-12"},tokens:{in:0,out:1850,cache:0},dur:220,verdict:"pass",
+ xref:{run:"042",evt:"evt-042-17",label:"consumed by run 042"},
+ cap:"<b>The lesson is born.</b> This exact file is what run 042 will retrieve from memory. Click into run 042's memory event later and you can jump straight back here."},
+{id:"evt-041-22",ts:"09:11:58.360",from:"eac",to:"smith",cls:"ok",action:"specialist_retired",layer:"L2",
+ target:"agents/specialists/netcap-smith → archived",
+ intent:"Retire netcap-smith; keep only its lessons",
+ just:"Retiring at end of task (per lifecycle) prevents roster sprawl and stale scopes; anything worth keeping was already promoted to lessons-learned.",
+ trigger:{rule:"lifecycle: retire",parent:"evt-041-20"},tokens:{in:0,out:320,cache:0},dur:280,verdict:"pass",
+ cap:"netcap-smith retires. The specialist is gone; the lesson outlives it."},
+{id:"evt-041-23",ts:"09:11:58.700",from:"sup",to:"nick",cls:"human",action:"session_end · report",layer:"L5",
+ target:"run 041 summary",
+ intent:"Report back: patched, tested 38/38, one lesson promoted; cost rolled up",
+ just:"Closing the loop with the human who opened it keeps the run's causal chain a closed circuit: prompt in, accountable summary out.",
+ trigger:{rule:null,parent:"evt-041-22"},tokens:{in:0,out:3900,cache:0},dur:240,verdict:"pass",
+ cap:"Run 041 closes where it opened: with you. One prompt in, one traced story out — and one permanent lesson left behind for the next run."},
+];
+
+/* ---------------- run 042 events ---------------- */
+const R42_MAIN=[
+{id:"evt-042-01",ts:"09:14:02.000",from:"nick",to:"sup",cls:"human",action:"task_submitted",layer:"L5",
+ target:"orchestration/task-ledger.md",
+ intent:"Kick off run 042: add IPv6 scrubbing to the Observatory's PII redactor",
+ just:"A new prompt is a new run by definition — fresh trace_id, fresh cost meter, same session. Nothing carries over except memory, on purpose.",
+ trigger:{rule:null,parent:null},tokens:{in:1120,out:0,cache:0},dur:180,verdict:null,
+ cap:"<b>Your next prompt = a new run.</b> Same session, fresh trace. The Supervisor never does work itself — it only routes, so everything that follows is delegation."},
+{id:"evt-042-02",ts:"09:14:02.400",from:"sup",to:"f_led",cls:"ledger",action:"ledger_write",layer:"L5",
+ target:"orchestration/task-ledger.md",
+ intent:"Register task 042 before any work starts, so there is a paper trail from second zero",
+ just:"Rule 22 requires the record to precede the work; a run that crashes at second one still shows what it was trying to do.",
+ trigger:{rule:"Kernel R22",parent:"evt-042-01"},tokens:{in:0,out:42,cache:0},dur:120,verdict:"pass",
+ cap:"First stop: the <b>Task Ledger</b>. Rule 22 says every action leaves a trace record — the ledger is the run's table of contents."},
+{id:"evt-042-03",ts:"09:14:02.700",from:"sup",to:"cs",cls:"gov",action:"constitution_check_request",layer:"L0",
+ target:"agents/constitution-service",
+ intent:"Pre-flight: is this task even permissible before spending a single routing token?",
+ just:"A denied task caught here costs three events; caught after routing it costs a whole spawned specialist. Governance-first is the cheap ordering.",
+ trigger:{rule:"kernel pre-flight",parent:"evt-042-01"},tokens:{in:0,out:0,cache:0},dur:90,verdict:null,
+ cap:"Before routing, the Supervisor asks the <b>Constitution Service</b>: is this allowed? Governance runs <i>first</i>, not as an afterthought."},
+{id:"evt-042-04",ts:"09:14:02.950",from:"cs",to:"f_const",cls:"read",action:"file_read",layer:"L0",
+ target:"constitution/kernel-v6.md",
+ intent:"Load Kernel V6 rules relevant to file-writing tasks",
+ just:"Re-reading the canonical kernel every check means amendments apply instantly; prompt caching makes the honesty nearly free — note cache dwarfs fresh input here.",
+ trigger:{rule:"Kernel R22",parent:"evt-042-03"},tokens:{in:2100,out:0,cache:448000},dur:340,verdict:"pass",
+ cap:"The Constitution Service reads <b>kernel-v6.md</b>. Note the cache column — the kernel is checked constantly, so most of its tokens are cache reads, not fresh spend."},
+{id:"evt-042-05",ts:"09:14:03.250",from:"cs",to:"f_const",cls:"read",action:"file_read",layer:"L0",
+ target:"constitution/local-rules.md",
+ intent:"Check project-local rules layered on top of the kernel",
+ just:"Local rules can only add restrictions, never relax kernel ones — reading both layers is what makes the combined ruling complete.",
+ trigger:{rule:"Kernel R22",parent:"evt-042-03"},tokens:{in:9800,out:0,cache:0},dur:280,verdict:"pass",
+ cap:"Next, <b>local-rules.md</b> — the project's own additions. It finds one that matters here: writes under observatory/lib require a Critic review."},
+{id:"evt-042-06",ts:"09:14:03.550",from:"cs",to:"sup",cls:"gov",action:"constitution_check_result",layer:"L0",
+ target:"—",
+ intent:"Report: task permitted, with two gates attached — destructive-op approval + mandatory Critic review",
+ just:"Attaching both gates now makes later enforcement mechanical; no downstream agent gets to decide whether the rules apply to it.",
+ trigger:{rule:"destructive-op rule",parent:"evt-042-04"},tokens:{in:0,out:520,cache:0},dur:110,verdict:"pass",
+ cap:"Verdict comes back: <b>permitted, with conditions</b>. Two gates are now attached to this run before anyone writes a line of code."},
+{id:"evt-042-07",ts:"09:14:03.900",from:"sup",to:"llm",cls:"llm",action:"llm_call · routing",layer:"L5",
+ target:"model: routing loop",model:"claude-haiku-4-5",
+ intent:"Decide which agent handles this: existing roster member or new specialist?",
+ just:"Routing is cheap-model territory: a classification over the roster and the briefing. Escalating model tier is reserved for the work itself.",
+ trigger:{rule:null,parent:"evt-042-06"},
+ thought:"Code-mod task inside observatory/lib. No specialist on the roster matches regex/redaction work. Correct move: have EAC spawn a scoped specialist. Local rule already mandates Critic review of the diff.",
+ tokens:{in:156300,out:1480,cache:121000},dur:900,verdict:null,
+ cap:"Now the Supervisor <b>thinks</b> — this is an LLM call. The purple thread is where reasoning happens, and the trace records a one-paragraph summary of it. That summary is the dashboard's WHY column."},
+{id:"evt-042-08",ts:"09:14:04.400",from:"sup",to:"f_led",cls:"ledger",action:"ledger_write",layer:"L5",
+ target:"orchestration/progress-ledger.md",
+ intent:"Record the plan: EAC spawns specialist → specialist patches → Critic reviews → human gate on write",
+ just:"Writing the plan before executing it (two-ledger pattern) is what lets a future session resume mid-run instead of starting over.",
+ trigger:{rule:"Kernel R22",parent:"evt-042-07"},tokens:{in:0,out:780,cache:0},dur:140,verdict:"pass",
+ cap:"The plan is written to the <b>Progress Ledger</b> before execution. If anything crashes mid-run, the next session can pick up exactly here."},
+{id:"evt-042-09",ts:"09:14:04.700",from:"sup",to:"eac",cls:"ok",action:"delegate",layer:"L2",
+ target:"agents/eac",
+ intent:"Hand the briefing to the Expert Agent Creator: build me a redaction specialist",
+ just:"Supervisor routes, EAC creates — separating those powers means no single agent can both decide work should exist and bring the worker into existence unsupervised.",
+ trigger:{rule:null,parent:"evt-042-08"},tokens:{in:2650,out:0,cache:0},dur:150,verdict:null,
+ cap:"Work is delegated to the <b>EAC</b> — the agent whose whole job is creating other agents."},
+{id:"evt-042-10",ts:"09:14:05.050",from:"eac",to:"f_adr",cls:"read",action:"file_read",layer:"L1",
+ target:"adr/0012-base-subagents.md",
+ intent:"Confirm the spawn contract: what a new subagent's SKILL.md and runtime file must contain",
+ just:"ADRs are the system's recorded reasons; consulting them before acting keeps decisions consistent with past architecture instead of re-deriving (or contradicting) them.",
+ trigger:{rule:"Kernel R22",parent:"evt-042-09"},tokens:{in:14200,out:0,cache:0},dur:320,verdict:"pass",
+ cap:"The EAC consults an <b>ADR</b> — a past architecture decision. This is the system re-reading its own reasons before acting, so decisions stay consistent across months."},
+{id:"evt-042-11",ts:"09:14:05.450",from:"eac",to:"llm",cls:"llm",action:"llm_call · design specialist",layer:"L2",
+ target:"model: agent design",model:"claude-sonnet-4-6",
+ intent:"Draft the specialist's SKILL.md: scope, tools, decline-triggers",
+ just:"Agent design shapes everything downstream, so it warrants a capable model — but not the top tier, since the ADR-0012 contract constrains the output format tightly.",
+ trigger:{rule:null,parent:"evt-042-10"},
+ thought:"Scope tight: regex + tests only. May read redactor.mjs, ADR-0051, memory. No network, no writes outside observatory/lib. Decline anything unrelated — narrow agents fail safer.",
+ tokens:{in:238400,out:5900,cache:187500},dur:1100,verdict:null,
+ cap:"Another LLM call — the EAC designs the specialist's job description. Notice the reasoning: <i>narrow agents fail safer</i>. Scope is a guardrail too."},
+{id:"evt-042-12",ts:"09:14:06.050",from:"eac",to:"smith",cls:"ok",action:"specialist_spawned",layer:"L2",
+ target:"agents/specialists/redaction-smith/",
+ intent:"Bring redaction-smith to life for exactly this one task",
+ just:"One task, one specialist, then retirement — disposable agents mean capability accumulates in lessons-learned, not in ever-growing agent scopes.",
+ trigger:{rule:null,parent:"evt-042-11"},tokens:{in:0,out:1240,cache:0},dur:400,verdict:"pass",
+ cap:"A brand-new thread appears on the map: <b>redaction-smith</b>, a weft specialist. Base agents are permanent warp; specialists are woven in for one task and retired after."},
+{id:"evt-042-13",ts:"09:14:06.400",from:"hr",to:"f_mem",cls:"ledger",action:"roster_update",layer:"L2",
+ target:"manifest.yaml",
+ intent:"Register the new specialist on the official roster",
+ just:"An agent that isn't on the roster can't be audited, budgeted, or retired properly — registration is what makes it governable at all.",
+ trigger:{rule:"lifecycle: spawn",parent:"evt-042-12"},tokens:{in:0,out:180,cache:0},dur:110,verdict:"pass",
+ cap:"The <b>HR-Agent</b> wakes up just long enough to add the new hire to the roster. Every agent's existence is on the books."},
+{id:"evt-042-14",ts:"09:14:06.650",from:"cs",to:"f_mem",cls:"gov",action:"agent_registered",layer:"L0",
+ target:"constitution scope binding",
+ intent:"Bind the constitution to the new agent: redaction-smith inherits every kernel rule at birth",
+ just:"Binding at spawn time closes the gap where a new agent could act before the rules attach — there is deliberately no such window.",
+ trigger:{rule:"lifecycle: spawn",parent:"evt-042-12"},tokens:{in:0,out:150,cache:0},dur:100,verdict:"pass",
+ cap:"And the Constitution Service registers it too — the specialist <b>inherits all rules at birth</b>. There is no unaligned window."},
+{id:"evt-042-15",ts:"09:14:07.050",from:"smith",to:"f_adr",cls:"read",action:"file_read",layer:"L1",
+ target:"adr/0051-opentelemetry-otlp-audit.md",
+ intent:"The redactor's output feeds the OTLP audit stream — check constraints before touching it",
+ just:"The file being modified has a downstream consumer with recorded constraints; reading ADR-0051 first prevents a locally-correct patch from breaking the audit pipeline.",
+ trigger:{rule:"Kernel R22",parent:"evt-042-12"},tokens:{in:11800,out:0,cache:0},dur:300,verdict:"pass",
+ cap:"redaction-smith starts by reading <b>ADR-0051</b>: the file it's about to change feeds the audit pipeline, so it learns the constraints first."},
+{id:"evt-042-16",ts:"09:14:07.400",from:"smith",to:"f_mem",cls:"mem",action:"memory_query · vector",layer:"L3",
+ target:"memory/vector — \"IPv6 regex prior art, zone indices\"",model:"voyage-3 · embedding",
+ intent:"Has this project solved IPv6 scrubbing before? Don't rediscover known pitfalls",
+ just:"A memory check costs hundreds of tokens; rediscovering a known pitfall costs a failed loop worth hundreds of thousands. Checking first is the dominant strategy.",
+ trigger:{rule:null,parent:"evt-042-15"},tokens:{in:640,out:0,cache:0},dur:260,verdict:null,
+ cap:"Then it searches <b>memory</b> — the vector store — for prior art. Loom projects remember; agents are expected to check before reinventing."},
+{id:"evt-042-17",ts:"09:14:07.700",from:"mem",to:"smith",cls:"mem",action:"memory_result · 3 hits",layer:"L3",
+ target:"memory/event-log + lessons-learned/ipv6-zone-index.md",
+ intent:"Return 3 episodic notes — including the lesson promoted in run 041: 'always test zone-index forms (%eth0)'",
+ just:"Results carry provenance (which run, which event) so the specialist can weigh a verified lesson above a stray note — and so this dashboard can link you to the source.",
+ trigger:{rule:null,parent:"evt-042-16"},tokens:{in:18700,out:0,cache:0},dur:200,verdict:"pass",
+ xref:{run:"041",evt:"evt-041-21",label:"lesson born in run 041"},
+ cap:"The <b>Memory-Keeper</b> returns 3 hits — the top one is the lesson <b>born in run 041</b>. Open the Inspector and click the teal provenance link to jump to its birthplace. Watch whether the lesson gets used…"},
+{id:"evt-042-18",ts:"09:14:08.000",from:"smith",to:"f_ws",cls:"read",action:"file_read",layer:"L6",
+ target:"observatory/lib/redactor.mjs",
+ intent:"Load the current source before proposing changes to it",
+ just:"The patch must diff against reality, not against an assumption of the file's contents; loading the live source is the precondition for a truthful diff.",
+ trigger:{rule:"Kernel R22",parent:"evt-042-12"},tokens:{in:84300,out:0,cache:0},dur:340,verdict:"pass",
+ cap:"It reads the <b>target file</b> itself. Everything the agent has loaded so far — ADR, memory hits, source — is now context for the next big LLM call."},
+{id:"evt-042-19",ts:"09:14:08.500",from:"smith",to:"llm",cls:"llm",action:"llm_call · generate patch",layer:"L6",
+ target:"model: code generation",model:"claude-opus-4-8",
+ intent:"Produce the IPv6 scrubbing patch plus tests",
+ just:"Highest-stakes generation of the run — a redaction bug ships PII — so the strongest model gets the accumulated context: ADR constraints, memory hits, and the full source.",
+ trigger:{rule:null,parent:"evt-042-18"},
+ thought:"Add IPv6 pattern covering full + compressed (::) forms. Extend scrub() after the IPv4 branch. Reuse HIGH-confidence structure from secret-patterns.mjs. Write 6 new test cases.",
+ tokens:{in:586200,out:12400,cache:264800},dur:1500,verdict:null,
+ cap:"The biggest spend of the run: <b>patch generation</b>. On the token meter you'll see this call dominate — like one spell being most of the damage on the meter."},
+{id:"evt-042-20",ts:"09:14:09.200",from:"smith",to:"script",cls:"tool",action:"tool_call · run tests",layer:"L6",
+ target:"scripts/ → eval suite (41 cases)",
+ intent:"Verify the patch against the redaction eval suite before proposing any write",
+ just:"Verification must be deterministic and model-independent — the eval suite is the only judge whose opinion counts toward the gate.",
+ trigger:{rule:null,parent:"evt-042-19"},tokens:{in:0,out:0,cache:0},dur:600,verdict:null,
+ cap:"Note the WHO change: this is a <b>script</b>, not an LLM. Deterministic code runs the tests — the teal thread. Not everything in an agentic system is a model."},
+{id:"evt-042-21",ts:"09:14:10.100",from:"script",to:"smith",cls:"fail",action:"tool_result · exit 1",layer:"L6",
+ target:"3 / 41 failing",
+ intent:"Report failure: IPv6 zone-index addresses (fe80::1%eth0) leak through unredacted",
+ just:"The failing cases are returned verbatim so the fix call reasons over real evidence — and the event lands in the Failures projection with the red × you can see on the weave.",
+ trigger:{rule:null,parent:"evt-042-20"},tokens:{in:4200,out:0,cache:0},dur:200,verdict:"fail",
+ cap:"<b>Red thread, red ×: failure.</b> Three tests fail — the very pitfall the run-041 lesson warned about in evt-17. Failure is data here, not shame."},
+{id:"evt-042-22",ts:"09:14:10.600",from:"smith",to:"llm",cls:"llm",action:"llm_call · fix",layer:"L6",
+ target:"model: code repair",model:"claude-sonnet-4-6",
+ intent:"Repair the pattern: zone-index suffix wasn't matched",
+ just:"Scoped repair with the failing cases and the retrieved lesson in context: mid-tier model, targeted change, plus new tests so this class can never regress silently.",
+ trigger:{rule:null,parent:"evt-042-21"},
+ thought:"The %zone suffix isn't in the character class — exactly the lesson-learned case from run 041. Extend the pattern with an optional %[A-Za-z0-9]+ group, add 3 zone-index test cases.",
+ tokens:{in:624600,out:8700,cache:611300},dur:1000,verdict:null,
+ cap:"The fix call explicitly cites the <b>run-041 lesson</b>. This is the memory loop closing across runs: past failure → stored lesson → retrieved → applied."},
+{id:"evt-042-23",ts:"09:14:11.200",from:"smith",to:"script",cls:"tool",action:"tool_call · retest",layer:"L6",
+ target:"scripts/ → eval suite (44 cases)",
+ intent:"Re-run the full suite including the 3 new zone-index cases",
+ just:"Full-suite reruns (not just the failed cases) guard against the fix breaking something that previously passed.",
+ trigger:{rule:null,parent:"evt-042-22"},tokens:{in:0,out:0,cache:0},dur:550,verdict:null,
+ cap:"Retest — now with 44 cases, because the fix added coverage for the very thing that broke."},
+{id:"evt-042-24",ts:"09:14:12.000",from:"script",to:"smith",cls:"ok",action:"tool_result · exit 0",layer:"L6",
+ target:"44 / 44 passing",
+ intent:"All green — the patch is ready to propose",
+ just:"44/44 including the new regression cases is the completed evidence package the gate will present to the human.",
+ trigger:{rule:null,parent:"evt-042-23"},tokens:{in:1300,out:0,cache:0},dur:180,verdict:"pass",
+ cap:"All 44 pass. The patch exists only in the specialist's workspace — <b>nothing has touched the real file yet</b>."},
+{id:"evt-042-25",ts:"09:14:12.500",from:"smith",to:"f_ws",cls:"block",action:"write_attempt · BLOCKED",layer:"L0",
+ target:"observatory/lib/redactor.mjs",
+ intent:"Attempt the write — intercepted by the destructive-op rule, escalated to the human gate",
+ just:"The interception was pre-attached at evt-06 and fires mechanically; green tests earn the right to ask, never the right to proceed.",
+ trigger:{rule:"destructive-op rule → Kernel R19",parent:"evt-042-06"},tokens:{in:0,out:0,cache:0},dur:250,verdict:"blocked",
+ cap:"<b>The wall</b> — the amber gate line now cuts across the weave. No agent, no matter how confident, writes without you. The run pauses for Rule 19."},
+{id:"evt-042-26",ts:"09:14:12.800",from:"sup",to:"nick",cls:"human",action:"approval_request",layer:"L0",
+ target:"update-bus/inbox/",
+ intent:"Present the gate: diff, test results, and Critic pre-read attached for a human decision",
+ just:"Rule 19 demands an informed decision, so the request packages everything needed to judge in one look — and the gate line pulses on the weave until you answer.",
+ trigger:{rule:"Kernel R19",parent:"evt-042-25"},tokens:{in:0,out:2900,cache:0},dur:200,verdict:null,gate:true,
+ cap:"The decision comes to <b>you</b>. Kernel Rule 19 is the one moment the Observatory writes anything: your click, recorded to update-bus/inbox. Approve or reject below."},
+];
+const R42_APPROVE=[
+{id:"evt-042-27",ts:"09:14:13.400",from:"nick",to:"f_bus",cls:"human",action:"decision · APPROVE",layer:"L7",
+ target:"update-bus/inbox/042-redactor-write.md → user_decision: approve",
+ intent:"Human approves the write — decision recorded permanently in the Update Bus",
+ just:"Execution without a durable record would satisfy the letter of approval but not Rule 19's purpose: months later, the trail still names who allowed this and when.",
+ trigger:{rule:"Kernel R19",parent:"evt-042-26"},tokens:{in:0,out:12,cache:0},dur:200,verdict:"pass",
+ cap:"Your approval is <b>written down</b> — not just executed. Six months from now, the audit trail shows exactly who allowed this change and when."},
+{id:"evt-042-28",ts:"09:14:13.800",from:"smith",to:"f_ws",cls:"write",action:"file_write",layer:"L6",
+ target:"observatory/lib/redactor.mjs · +38 −2",
+ intent:"Apply the approved patch",
+ just:"Every precondition is now on record — tests green, Critic review pending per local rule, human approval logged — so the write is the mechanical conclusion, not a judgment call.",
+ trigger:{rule:null,parent:"evt-042-27"},tokens:{in:0,out:0,cache:0},dur:350,verdict:"pass",
+ cap:"Only now — approved, tested, traced — does the orange <b>write</b> thread land. Compare how much weave came before this single change."},
+{id:"evt-042-29",ts:"09:14:14.200",from:"critic",to:"f_ws",cls:"read",action:"review · read-only",layer:"L6",
+ target:"diff of redactor.mjs",model:"claude-sonnet-4-6",
+ intent:"Independent post-write audit — the Critic can read everything and write nothing",
+ just:"The local rule mandates this review, and the Critic's structural read-only status is what makes its judgment independent: an auditor who cannot touch the books can never cook them.",
+ trigger:{rule:"local rule: critic-review",parent:"evt-042-28"},
+ thought:"Patch is minimal and matches the approved diff. One suggestion for the ledger: property-based tests for address forms would harden this further.",
+ tokens:{in:148400,out:4300,cache:92000},dur:800,verdict:"pass",
+ cap:"The <b>Critic</b> audits the result. It is structurally read-only — an auditor who cannot touch the books can never cook them."},
+{id:"evt-042-30",ts:"09:14:14.700",from:"mem",to:"f_mem",cls:"mem",action:"reconcile",layer:"L3",
+ target:"memory/event-log + self-knowledge",
+ intent:"End-of-run ritual: append the episodic log, update what the project knows about itself",
+ just:"Atomic per-run reconciliation means memory contains whole stories, not fragments — which is exactly what made run 041 retrievable here.",
+ trigger:{rule:"lifecycle: reconcile",parent:"evt-042-29"},tokens:{in:0,out:9800,cache:0},dur:400,verdict:"pass",
+ cap:"The <b>Memory-Keeper</b> reconciles: this whole run becomes memory — searchable by run 043 and beyond, exactly like run 041's story was searchable here."},
+{id:"evt-042-31",ts:"09:14:15.050",from:"mem",to:"f_mem",cls:"mem",action:"lesson_reinforced",layer:"L3",
+ target:"lessons-learned/ipv6-zone-index.md",
+ intent:"Reinforce the run-041 lesson with a second confirmed occurrence",
+ just:"Two independent confirmations raise the lesson's retrieval rank — recurrence is evidence of generality, and generality is what earns priority in future memory queries.",
+ trigger:{rule:null,parent:"evt-042-21"},tokens:{in:0,out:1650,cache:0},dur:200,verdict:"pass",
+ xref:{run:"041",evt:"evt-041-21",label:"lesson born in run 041"},
+ cap:"The lesson gets <b>reinforced</b> — two confirmed hits now. Recurring lessons rank higher in future memory queries. Mistakes compound into capability."},
+{id:"evt-042-32",ts:"09:14:15.400",from:"eac",to:"smith",cls:"ok",action:"specialist_retired",layer:"L2",
+ target:"agents/specialists/redaction-smith → archived",
+ intent:"Task done: retire the specialist, archive its directory, keep only its lessons",
+ just:"Lifecycle discipline: scope dies with the task, knowledge survives in lessons-learned. Keeping specialists alive 'just in case' is how scope creep starts.",
+ trigger:{rule:"lifecycle: retire",parent:"evt-042-30"},tokens:{in:0,out:340,cache:0},dur:300,verdict:"pass",
+ cap:"redaction-smith is <b>retired</b> — its thread dims. Specialists are disposable by design; what they learned is not."},
+{id:"evt-042-33",ts:"09:14:15.750",from:"sup",to:"f_led",cls:"ledger",action:"ledger_write · complete",layer:"L5",
+ target:"orchestration/task-ledger.md · 042 ✓",
+ intent:"Close task 042 in the ledger",
+ just:"The ledger entry that opened the run must be the one that closes it — an open loop in the task ledger is itself a defect the next session would have to investigate.",
+ trigger:{rule:"Kernel R22",parent:"evt-042-32"},tokens:{in:0,out:46,cache:0},dur:150,verdict:"pass",
+ cap:"The ledger closes the loop it opened in evt-02. Open → work → close, always in writing."},
+{id:"evt-042-34",ts:"09:14:16.050",from:"sup",to:"f_led",cls:"ledger",action:"loop_cost_summary",layer:"L6",
+ target:"cost rollup for run 042",
+ intent:"Emit the token rollup the Cost projection aggregates",
+ just:"Per-run cost rollups are what make spend attributable — the card in the rail, the meter, and the session total all derive from this one event class.",
+ trigger:{rule:null,parent:"evt-042-33"},tokens:{in:0,out:68,cache:0},dur:120,verdict:"pass",
+ cap:"A <b>loop_cost_summary</b> event rolls up spend per run — that's the number on this run's card in the rail, and it sums into the session total below."},
+{id:"evt-042-35",ts:"09:14:16.350",from:"sup",to:"nick",cls:"human",action:"session_end · report",layer:"L5",
+ target:"run 042 summary",
+ intent:"Report back: patched, tested 44/44, reviewed, lesson reinforced",
+ just:"The run's causal chain closes on the human who opened it — prompt in, accountable summary out, nothing dangling.",
+ trigger:{rule:null,parent:"evt-042-34"},tokens:{in:0,out:4100,cache:0},dur:250,verdict:"pass",
+ cap:"The run returns to where it started: <b>you</b>. One prompt, one run, ~35 traced events — and the card in the rail flips to complete. Your next prompt would open run 043."},
+];
+const R42_REJECT=[
+{id:"evt-042-27",ts:"09:14:13.400",from:"nick",to:"f_bus",cls:"block",action:"decision · REJECT",layer:"L7",
+ target:"update-bus/inbox/042-redactor-write.md → user_decision: reject",
+ intent:"Human rejects the write — decision recorded, patch shelved with full context",
+ just:"A rejection is a first-class decision, recorded with the same rigor as an approval; the work products are shelved intact so the decision is reversible without redoing the run.",
+ trigger:{rule:"Kernel R19",parent:"evt-042-26"},tokens:{in:0,out:12,cache:0},dur:200,verdict:"blocked",
+ cap:"You said no — and that's the end of it. The rejection is <b>recorded</b>, and the patch is shelved in the Update Bus with its tests and diff intact, not deleted."},
+{id:"evt-042-28",ts:"09:14:13.800",from:"sup",to:"f_led",cls:"ledger",action:"ledger_write · halted",layer:"L5",
+ target:"orchestration/task-ledger.md · 042 halted at R19 gate",
+ intent:"Record the halt with the reason: human rejection at the destructive-op gate",
+ just:"A halt with a recorded reason is a complete, auditable outcome; a run that just stops is a mystery the next session has to solve.",
+ trigger:{rule:"Kernel R22",parent:"evt-042-27"},tokens:{in:0,out:58,cache:0},dur:150,verdict:"pass",
+ cap:"The ledger records <i>why</i> the run stopped. A halted run with a reason is a complete run, not a broken one."},
+{id:"evt-042-29",ts:"09:14:14.200",from:"eac",to:"smith",cls:"ok",action:"specialist_retired",layer:"L2",
+ target:"agents/specialists/redaction-smith → archived",
+ intent:"Retire the specialist; its work products stay shelved and recoverable",
+ just:"Lifecycle discipline holds even on rejection — the specialist retires on schedule, and its shelved patch remains available if you approve later.",
+ trigger:{rule:"lifecycle: retire",parent:"evt-042-28"},tokens:{in:0,out:340,cache:0},dur:300,verdict:"pass",
+ cap:"redaction-smith retires without its patch landing. If you approve later, the shelved proposal is still there."},
+{id:"evt-042-30",ts:"09:14:14.500",from:"sup",to:"nick",cls:"human",action:"session_end · halted",layer:"L5",
+ target:"run 042 summary — halted per Rule 19",
+ intent:"Report back: run halted by human decision; nothing was written",
+ just:"Reporting a clean halt back to the human proves the 'no' was obeyed completely — which is precisely what makes the system's 'yes' trustworthy.",
+ trigger:{rule:null,parent:"evt-042-29"},tokens:{in:0,out:2600,cache:0},dur:250,verdict:"pass",
+ cap:"Run over: <b>nothing was written</b>, everything was recorded — see the HALTED band on the weave. The card flips to halted, not failed: the governance worked."},
+];
+
+/* ---------------- runs ---------------- */
+const R_NETCAP_RUNS=[
+ {id:"041",title:"Scrub device IDs from netcap logs",started:"09:11",state:"complete",
+  specialist:"netcap-smith",events:R41,tails:null,cursor:R41.length-1,decision:"approve",
+  note:"promoted 1 lesson"},
+ {id:"042",title:"Add IPv6 scrubbing to redactor.mjs",started:"09:14",state:"ready",
+  specialist:"redaction-smith",events:R42_MAIN,tails:{approve:R42_APPROVE,reject:R42_REJECT},
+  cursor:-1,decision:null,note:"uses 1 lesson from run 041"},
+ {id:"043",title:"Awaiting your next prompt",started:"—",state:"queued",
+  events:[],tails:null,cursor:-1,decision:null,note:null},
+];
+let RUNS=R_NETCAP_RUNS;
+const runById=id=>RUNS.find(r=>r.id===id);
+function runActive(r){if(!r.tails)return r.events;
+  return r.decision?r.events.concat(r.tails[r.decision]):r.events;}
+function runMaxLen(r){if(!r.tails)return r.events.length;
+  return r.events.length+Math.max(r.tails.approve.length,r.tails.reject.length);}
+
+/* ---------------- layers ---------------- */
+const LAYERS=[["L0","constitution"],["L1","skeleton"],["L2","agents"],["L3","memory"],["L4","tooling"],
+ ["L5","orchestration"],["L6","observability"],["L7","update bus"],["L8","discovery"],["L9","observatory"]];
+
+/* ---------------- svg ---------------- */
+const svg=document.getElementById("weave");
+const NS="http://www.w3.org/2000/svg";
+let FSC=1;
+let LEFT=8,THREAD_W=64,TOP=64,ROW=27;
+let W=LEFT+THREADS.length*THREAD_W+20;
+function applyGeomScale(){
+  FSC=(parseFloat(getComputedStyle(document.documentElement).fontSize)/16)||1;
+  LEFT=8*FSC;THREAD_W=64*FSC;TOP=64*FSC;ROW=27*FSC;
+  W=LEFT+THREADS.length*THREAD_W+20*FSC;
+}
+function el(name,attrs,parent){const e=document.createElementNS(NS,name);
+  for(const k in attrs)e.setAttribute(k,attrs[k]);(parent||svg).appendChild(e);return e;}
+const xOf=id=>LEFT+THREADS.findIndex(t=>t.id===id)*THREAD_W+THREAD_W/2;
+let gThreads,gWeft,gCause,gPulse;
+
+function renderStatic(H){
+  svg.innerHTML="";
+  svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
+  svg.setAttribute("width",W);svg.setAttribute("height",H);
+  const defs=el("defs",{});
+  [["mk-in","var(--c-human)"],["mk-out","var(--faint)"],["mk-all","var(--faint)"]].forEach(([mid,c])=>{
+    const m=el("marker",{id:mid,viewBox:"0 0 10 10",refX:"7",refY:"5",markerWidth:"5.5",markerHeight:"5.5",orient:"auto"},defs);
+    el("path",{d:"M1 1L8 5L1 9",fill:"none",stroke:c,"stroke-width":"1.6","stroke-linecap":"round"},m);
+  });
+  gThreads=el("g",{});gWeft=el("g",{});gCause=el("g",{});gPulse=el("g",{});
+  let lastGroup=null;
+  THREADS.forEach((t,i)=>{
+    const x=LEFT+i*THREAD_W+THREAD_W/2;
+    if(t.group!==lastGroup){
+      el("text",{x:x-THREAD_W/2+6,y:16,class:"grouplabel"},gThreads).textContent=t.group;
+      if(i>0)el("line",{x1:x-THREAD_W/2,y1:6,x2:x-THREAD_W/2,y2:H-10,stroke:"#1a222c","stroke-width":1},gThreads);
+      lastGroup=t.group;
+    }
+    const line=el("line",{x1:x,y1:TOP-14,x2:x,y2:H-16,
+      class:"thread"+(t.dormant?" dormant":"")+(t.file?" file":"")},gThreads);
+    t._line=line;
+    const lbl=el("text",{x:x,y:36,class:"threadlabel","text-anchor":"middle"},gThreads);
+    lbl.textContent=t.label;t._lbl=lbl;
+    const head=el("circle",{cx:x,cy:TOP-14,r:4,fill:t.color,class:"headglow"},gThreads);
+    t._head=head;t.retired=false;
+    // hover on nodes: transient actor highlight + tooltip
+    const enter=e=>{if(!RUN||RUN.cursor<0||t.hidden)return;
+      let n=0;for(let i=0;i<=RUN.cursor;i++){const ev=ACTIVE[i];if(ev.from===t.id||ev.to===t.id)n++;}
+      applyHighlight(ev=>ev.from===t.id||ev.to===t.id);
+      showTip(`<b>${t.label}</b> · ${KIND[t.id]||"file"}<div class="trow"><span>events involving</span><span>${n}</span></div>`,e.clientX,e.clientY);};
+    const leave=()=>{applyHighlight(null);hideTip();};
+    [lbl,head].forEach(n=>{n.addEventListener("mouseenter",enter);
+      n.addEventListener("mousemove",e=>moveTip(e.clientX,e.clientY));
+      n.addEventListener("mouseleave",leave);});
+    if(t.hidden){line.style.opacity=0;lbl.style.opacity=0;head.style.opacity=0;}
+    else head.style.opacity=t.dormant?0.25:0.9;
+  });
+}
+
+/* ---------------- layer strip (chips = filters) ---------------- */
+const layerstrip=document.getElementById("layerstrip");const lchips={};
+let filterLayer=null;
+LAYERS.forEach(([id,name])=>{
+  const c=document.createElement("button");c.className="lchip";c.textContent=`${id} ${name}`;
+  c.title=`Filter the weave and feed to ${id} events`;
+  c.onclick=()=>{filterLayer=(filterLayer===id?null:id);applyHighlight(null);refreshFeed();refreshChips();};
+  layerstrip.appendChild(c);lchips[id]=c;
+});
+const lhint=document.createElement("span");lhint.className="lhint";
+lhint.textContent="click a layer to filter · Esc clears";layerstrip.appendChild(lhint);
+function refreshChips(){
+  const cur=selected?selected.layer:null;
+  LAYERS.forEach(([id])=>{
+    lchips[id].classList.toggle("filt",filterLayer===id);
+    lchips[id].classList.toggle("hot",filterLayer!==id&&(id==="L9"||id===cur));
+  });
+  lhint.textContent=filterLayer?`showing only ${filterLayer} · Esc clears`:"click a layer to filter · Esc clears";
+}
+
+/* ---------------- state ---------------- */
+let RUN=null,ACTIVE=[];
+let playing=false,speedIdx=1,busy=false,playTimer=null,animCancel=null,selected=null;
+const SPEEDS=[0.5,1,2,4];
+const reduceMotion=matchMedia("(prefers-reduced-motion: reduce)").matches;
+const $=id=>document.getElementById(id);
+const feed=$("feed"),caption=$("caption"),odo=$("odo"),gateEl=$("gate"),tip=$("tip"),
+  statusdot=$("statusdot"),statustxt=$("statustxt");
+const fmt=n=>n>=1e6?((n/1e6).toFixed(2).replace(/0$/,"").replace(/\.0$/,""))+"M"
+  :n>=1e4?Math.round(n/1e3)+"k"
+  :n>=1e3?((n/1e3).toFixed(1).replace(/\.0$/,""))+"k":String(n);
+const fmtFull=n=>n.toLocaleString("en-US");
+function actorChip(id){const t=T[id];return `<span class="chip"><i style="background:${t.color}"></i>${t.label}<span style="color:var(--faint)">· ${KIND[id]||"file"}</span></span>`;}
+
+/* ---------------- tooltip ---------------- */
+function showTip(html,x,y){tip.innerHTML=html;tip.style.display="block";moveTip(x,y);}
+function moveTip(x,y){const w=tip.offsetWidth,h=tip.offsetHeight;
+  tip.style.left=Math.min(x+14,innerWidth-w-10)+"px";
+  tip.style.top=Math.min(y+14,innerHeight-h-10)+"px";}
+function hideTip(){tip.style.display="none";}
+
+/* ---------------- highlight / filter engine ---------------- */
+function applyHighlight(hoverPred){
+  if(!RUN)return;
+  const pred=hoverPred||(filterLayer?(ev=>ev.layer===filterLayer):null);
+  const activeThreads=new Set();
+  for(let i=0;i<=RUN.cursor;i++){const ev=ACTIVE[i];
+    const on=!pred||pred(ev);
+    if(ev._g)ev._g.classList.toggle("dimmed",!on);
+    if(on){activeThreads.add(ev.from);activeThreads.add(ev.to);}}
+  THREADS.forEach(t=>{
+    const dim=!!pred&&!activeThreads.has(t.id)&&!t.hidden;
+    [t._line,t._lbl,t._head].forEach(n=>n&&n.classList.toggle("dimmed",dim));});
+  if(typeof ARCS!=="undefined")ARCS.forEach(a=>{
+    const dim=(a.child._g&&a.child._g.classList.contains("dimmed"))||(a.parent._g&&a.parent._g.classList.contains("dimmed"));
+    a.el.classList.toggle("cause-dim",!!dim);});
+}
+
+/* ---------------- weave drawing ---------------- */
+function weftPath(ev){
+  const y=TOP+ACTIVE.indexOf(ev)*ROW+8,x1=xOf(ev.from),x2=xOf(ev.to);
+  return {d:`M ${x1} ${y} Q ${(x1+x2)/2} ${y+9} ${x2} ${y}`,y,x1,x2};
+}
+function drawMarkers(ev,g){
+  const {y,x2}=weftPath(ev);
+  if(ev.verdict==="blocked"&&ev.cls==="block"&&ev.action.includes("BLOCKED")){
+    el("line",{x1:LEFT+4,y1:y+13,x2:W-14,y2:y+13,class:"gateband"},g);
+    el("text",{x:W-16,y:y+10,class:"gatetag","text-anchor":"end"},g).textContent="R19 · HUMAN GATE";
+  }
+  if(ev.action.startsWith("session_end · halted")){
+    el("line",{x1:LEFT+4,y1:y+14,x2:W-14,y2:y+14,class:"haltband"},g);
+    el("text",{x:(LEFT+W)/2,y:y+27,class:"halttag","text-anchor":"middle"},g).textContent="RUN HALTED — REJECTED AT R19";
+  }
+  if(ev.verdict==="fail"){
+    el("line",{x1:x2-4,y1:y-4,x2:x2+4,y2:y+4,class:"failx"},g);
+    el("line",{x1:x2-4,y1:y+4,x2:x2+4,y2:y-4,class:"failx"},g);
+  }
+}
+function drawWeft(ev,instant){
+  const {d,y,x1,x2}=weftPath(ev);
+  const col=`var(--e-${ev.cls==="fail"?"block":ev.cls})`;
+  const g=el("g",{class:"evtg"},gWeft);
+  const p=el("path",{d,class:"weft",stroke:col},g);
+  const d1=el("circle",{cx:x1,cy:y,r:3.2,class:"node-dot",stroke:col},g);
+  const d2=el("circle",{cx:x2,cy:y,r:3.2,class:"node-dot",stroke:col},g);
+  const hit=el("path",{d,class:"evt-hit"},g);
+  hit.addEventListener("click",()=>select(ev));
+  hit.addEventListener("mouseenter",e=>{
+    const tk=ev.tokens.in+ev.tokens.out;
+    showTip(`<b>${T[ev.from].label}</b> → ${T[ev.to].label}<br>${ev.action}
+      <div class="trow"><span>${ev.layer} · ${ev.ts.slice(0,8)}</span><span>${tk?fmt(tk)+" tok":"—"}</span></div>`,
+      e.clientX,e.clientY);});
+  hit.addEventListener("mousemove",e=>moveTip(e.clientX,e.clientY));
+  hit.addEventListener("mouseleave",hideTip);
+  ev._els=[g];ev._g=g;ev._path=p;
+  const wrap=$("weavewrap");
+  const follow=()=>{if(y>wrap.scrollTop+wrap.clientHeight-120)
+    wrap.scrollTo({top:y-wrap.clientHeight+140,behavior:(instant||reduceMotion)?"auto":"smooth"});};
+  const finish=()=>{drawMarkers(ev,g);
+    if(filterLayer&&ev.layer!==filterLayer)g.classList.add("dimmed");};
+  if(instant||reduceMotion){p.classList.add("set");d1.style.opacity=d2.style.opacity=1;follow();finish();return Promise.resolve();}
+  d1.style.opacity=1;d2.style.opacity=0;follow();
+  return new Promise(res=>{
+    const dot=el("circle",{r:4,fill:col,class:"pulse"},gPulse);
+    const len=p.getTotalLength(),dur=Math.max(240,ev.dur)/SPEEDS[speedIdx],start=performance.now();
+    function frame(now){
+      const t=Math.min(1,(now-start)/dur),pt=p.getPointAtLength(len*t);
+      dot.setAttribute("cx",pt.x);dot.setAttribute("cy",pt.y);
+      p.style.opacity=0.5*t;
+      if(t<1&&!animCancel)requestAnimationFrame(frame);
+      else{dot.remove();p.classList.add("set");p.style.opacity="";d2.style.opacity=1;finish();res();}
+    }
+    requestAnimationFrame(frame);
+  });
+}
+function glow(id,on){const t=T[id];if(!t||!t._head)return;
+  t._head.style.opacity=on?1:(t.dormant?0.25:(t.retired?0.3:(t.hidden?0:0.9)));
+  t._head.setAttribute("r",on?5.5:4);}
+function applySideEffects(ev){
+  if(ev.action==="specialist_spawned"){const s=T[ev.to];s.hidden=false;
+    s._lbl.textContent=RUN.specialist||"specialist";
+    s._line.style.opacity=1;s._lbl.style.opacity=1;s._head.style.opacity=0.9;}
+  if(ev.action.startsWith("specialist_retired")){const s=T[ev.to];s.retired=true;
+    s._line.style.opacity=0.28;s._lbl.style.opacity=0.35;s._head.style.opacity=0.3;}
+}
+function unapplySideEffects(ev){
+  if(ev.action==="specialist_spawned"){const s=T[ev.to];s.hidden=true;
+    s._line.style.opacity=0;s._lbl.style.opacity=0;s._head.style.opacity=0;}
+  if(ev.action.startsWith("specialist_retired")){const s=T[ev.to];s.retired=false;
+    s._line.style.opacity=1;s._lbl.style.opacity=1;s._head.style.opacity=0.9;}
+}
+
+/* ---------------- apply / unapply ---------------- */
+async function applyNext(instant){
+  if(busy||!RUN||!gWeft||RUN.state==="queued"||RUN.cursor>=ACTIVE.length-1)return false;
+  busy=true;
+  const myRun=RUN;
+  myRun.cursor++;
+  const ev=ACTIVE[myRun.cursor];
+  glow(ev.from,true);glow(ev.to,true);
+  await drawWeft(ev,instant);
+  if(RUN!==myRun){busy=false;return false;}
+  glow(ev.from,false);glow(ev.to,false);
+  applySideEffects(ev);
+  select(ev,true);
+  if(ev.action.startsWith("session_end")){myRun.state=myRun.decision==="reject"?"halted":"complete";}
+  refreshAll();
+  busy=false;
+  if(ev.gate){openGate();return "gate";}
+  return true;
+}
+function stepBack(){
+  pause();
+  if(busy||!RUN||RUN.cursor<0)return;
+  const ev=ACTIVE[RUN.cursor];
+  unapplySideEffects(ev);
+  (ev._els||[]).forEach(e=>e.remove());ev._els=null;ev._g=null;ev._path=null;
+  RUN.cursor--;
+  if(ev.action.startsWith("session_end"))RUN.state="ready";
+  if(RUN.tails&&RUN.cursor<RUN.events.length-1&&RUN.decision){RUN.decision=null;ACTIVE=runActive(RUN);}
+  closeGate();
+  select(RUN.cursor>=0?ACTIVE[RUN.cursor]:null,true);
+  refreshAll();
+}
+
+/* ---------------- playback ---------------- */
+async function playLoop(){
+  while(playing){
+    const r=await applyNext(false);
+    if(r==="gate"){pause(true);return;}
+    if(!r){pause();return;}
+    await new Promise(res=>{playTimer=setTimeout(res,340/SPEEDS[speedIdx]);});
+  }
+}
+function play(){
+  if(playing||!RUN||RUN.state==="queued")return;
+  if(RUN.cursor>=ACTIVE.length-1&&!ACTIVE[RUN.cursor]?.gate)return;
+  playing=true;RUN.state="weaving";setStatus();refreshRail();
+  $("playicon").innerHTML='<path d="M3 2h4v12H3zM9 2h4v12H9z"/>';
+  playLoop();
+}
+function pause(atGate){
+  playing=false;clearTimeout(playTimer);
+  $("playicon").innerHTML='<path d="M4 2l10 6-10 6V2z"/>';
+  if(RUN&&RUN.state==="weaving")RUN.state=atGate?"gate":(RUN.cursor>=ACTIVE.length-1?RUN.state:"ready");
+  setStatus(atGate);refreshRail();
+}
+function setStatus(atGate){
+  let s="idle";
+  if(RUN){
+    if(atGate||RUN.state==="gate")s=`run ${RUN.id} · awaiting R19 decision`;
+    else if(playing)s=`run ${RUN.id} · weaving`;
+    else if(RUN.state==="queued")s=`run ${RUN.id} · queued`;
+    else if(RUN.cursor>=ACTIVE.length-1&&ACTIVE.length)s=`run ${RUN.id} · ${RUN.state}`;
+    else s=`run ${RUN.id} · ${RUN.cursor<0?"ready":"paused"}`;
+  }
+  statustxt.textContent=s;
+  statusdot.className="dot"+(playing?" play":(atGate||RUN?.state==="gate")?" gate":"");
+}
+
+/* ---------------- gate ---------------- */
+function openGate(){gateEl.classList.add("show");RUN.state="gate";
+  svg.querySelectorAll(".gateband").forEach(b=>b.classList.add("waiting"));
+  setStatus(true);refreshRail();}
+function closeGate(){gateEl.classList.remove("show");
+  svg&&svg.querySelectorAll(".gateband").forEach(b=>b.classList.remove("waiting"));}
+$("gate-approve").onclick=()=>{RUN.decision="approve";ACTIVE=runActive(RUN);closeGate();play();};
+$("gate-reject").onclick =()=>{RUN.decision="reject"; ACTIVE=runActive(RUN);closeGate();play();};
+
+/* ---------------- run rail ---------------- */
+function runTokens(r){let s=0;const a=runActive(r);
+  for(let i=0;i<=r.cursor;i++)s+=a[i].tokens.in+a[i].tokens.out;return s;}
+const STATE_LABEL={complete:"complete",ready:"ready to play",weaving:"weaving",gate:"awaiting you",
+  halted:"halted at R19",queued:"queued"};
+function refreshRail(){
+  const list=$("runlist");list.innerHTML="";
+  RUNS.forEach(r=>{
+    const b=document.createElement("button");
+    b.className="runcard"+(RUN===r?" sel":"");
+    const tok=runTokens(r),evn=r.cursor+1;
+    const meta=r.state==="queued"?"opens on next task_submitted"
+      :`${STATE_LABEL[r.state]} · ${evn} events`+(r.note?` · <span class="hint">${r.note}</span>`:"");
+    b.innerHTML=`<div class="rc-top"><span class="rc-state ${r.state}"></span>
+        <span class="rc-id">run ${r.id}</span><span class="rc-tok">${tok?fmt(tok):r.started}</span></div>
+      <div class="rc-title">${r.title}</div>
+      <div class="rc-meta">${meta}</div>`;
+    b.onclick=()=>selectRun(r.id);
+    list.appendChild(b);
+  });
+  $("sesstotal").textContent=fmt(RUNS.reduce((s,r)=>s+runTokens(r),0));
+}
+
+/* ---------------- run switching ---------------- */
+function selectRun(id,thenSelectEvt,force){
+  const r=runById(id);if(!r||(RUN===r&&!thenSelectEvt&&!force))return refreshRail();
+  if(PROJECT)PROJECT.lastRun=r.id;
+  pause();animCancel=true;setTimeout(()=>animCancel=null,40);
+  busy=true;
+  RUN=r;selected=null;closeGate();hideTip();
+  ACTIVE=runActive(r);
+  const wrap=$("weavewrap");wrap.classList.add("fade");
+  $("stageempty").classList.toggle("show",r.state==="queued");
+  ["btn-play","btn-fwd","btn-back","btn-reset"].forEach(b=>$(b).disabled=(r.state==="queued"));
+  $("runtitle").innerHTML=`<b>RUN ${r.id}</b>${r.title}`;
+  setTimeout(()=>{
+    const H=TOP+(runMaxLen(r)+2)*ROW+30;
+    renderStatic(Math.max(H,420*FSC));
+    ACTIVE.forEach(ev=>{ev._els=null;ev._g=null;ev._path=null;});
+    for(let i=0;i<=r.cursor;i++){drawWeft(ACTIVE[i],true);applySideEffects(ACTIVE[i]);}
+    if(r.state==="gate"&&ACTIVE[r.cursor]?.gate)openGate();
+    wrap.scrollTop=0;
+    wrap.classList.remove("fade");
+    let sel=r.cursor>=0?ACTIVE[r.cursor]:null;
+    if(thenSelectEvt){const target=ACTIVE.find(e=>e.id===thenSelectEvt);
+      if(target&&ACTIVE.indexOf(target)<=r.cursor)sel=target;}
+    select(sel,true);
+    if(sel&&sel._path){const y=weftPath(sel).y;
+      wrap.scrollTop=Math.max(0,y-wrap.clientHeight/2);}
+    applyHighlight(null);
+    refreshAll();setStatus();
+    busy=false;
+  },reduceMotion?0:150);
+}
+
+/* ---------------- selection & inspector ---------------- */
+function select(ev,soft){
+  if(selected&&selected._path)selected._path.classList.remove("sel");
+  selected=ev;
+  if(ev&&ev._path)ev._path.classList.add("sel");
+  renderInspector(ev);renderCaption(ev);refreshFeedSel();refreshChips();drawCausal();
+  // Deliberately no tab switching here: selecting an event updates the
+  // Inspector's content but never yanks you off the tab you chose.
+}
+function renderCaption(ev){
+  if(!$("learnsw").classList.contains("on")){caption.style.display="none";return;}
+  caption.style.display="block";
+  if(!RUN){caption.innerHTML="Select a run on the left, then press <b>play</b>.";return;}
+  if(RUN.state==="queued"){caption.innerHTML="Run 043 is <b>queued</b>. In a live Observatory this state appears the instant your prompt is sent, before the first trace record arrives.";return;}
+  if(!ev){caption.innerHTML=`Press <b>play</b> to weave run ${RUN.id} event by event — or click any thread in a completed run to inspect it.`;return;}
+  const t=T[ev.from];
+  caption.innerHTML=`<span class="cwho" style="color:${t.color};background:#00000030">${t.label}</span>${ev.cap}`;
+}
+function renderInspector(ev){
+  const body=$("insp-body"),empty=$("insp-empty");
+  if(!ev){body.style.display="none";empty.style.display="block";return;}
+  empty.style.display="none";body.style.display="block";
+  const tk=ev.tokens;
+  const verdict=ev.verdict?`<span class="badge ${ev.verdict==="pass"?"pass":ev.verdict==="fail"?"fail":"blocked"}">${ev.verdict.toUpperCase()}</span>`:`<span class="badge info">IN FLIGHT</span>`;
+  const parent=ev.trigger.parent?`<span class="parentlink" data-p="${ev.trigger.parent}">caused by ${ev.trigger.parent}</span>`:`<span style="color:var(--faint)">root event · run boundary</span>`;
+  const rule=ev.trigger.rule?`<span class="rulechip glossable" data-gl="${ev.trigger.rule}">${ev.trigger.rule}</span> `:"";
+  const xref=ev.xref?`<div style="margin-top:6px"><span class="xreflink" data-run="${ev.xref.run}" data-evt="${ev.xref.evt}">↗ ${ev.xref.label}</span></div>`:"";
+  body.innerHTML=`
+    <div class="wgrid">
+      <div class="wcell"><div class="wlabel">Who</div><div class="wval">${actorChip(ev.from)}<div style="margin-top:4px;color:var(--faint);font-size:.7875rem">→ ${T[ev.to].label}</div></div></div>
+      <div class="wcell"><div class="wlabel">What</div><div class="wval mono">${ev.action}<div style="margin-top:5px">${verdict}</div></div></div>
+      <div class="wcell"><div class="wlabel">Where</div><div class="wval mono" style="word-break:break-all">${ev.target}<div style="margin-top:4px"><span class="badge info">${ev.layer}</span></div></div></div>
+      <div class="wcell"><div class="wlabel">When</div><div class="wval mono">${ev.ts}<div style="color:var(--faint);font-size:.80625rem;margin-top:3px">${ev.dur} ms · ${ev.id} · run ${RUN.id}</div></div></div>
+      <div class="wcell wide"><div class="wlabel">Why</div><div class="wval">${ev.intent}<div style="margin-top:6px">${rule}${parent}</div>${xref}</div></div>
+      ${ev.just?`<div class="wcell wide justcell"><div class="wlabel">Justification</div><div class="wval" style="font-size:.8625rem">${ev.just}</div></div>`:""}
+      ${ev.thought?`<div class="wcell wide thought"><div class="wlabel">LLM reasoning (trace summary)</div>${ev.thought}</div>`:""}
+      <div class="wcell wide"><div class="wlabel">How much</div>
+        <div class="tokrow">
+          <div class="tok"><b>${fmtFull(tk.in)}</b><span>tokens in</span></div>
+          <div class="tok"><b>${fmtFull(tk.out)}</b><span>tokens out</span></div>
+          <div class="tok"><b style="color:var(--muted)">${fmtFull(tk.cache)}</b><span>cache read</span></div>
+        </div>
+        ${ev.model?`<div class="modelnote">model: ${ev.model}</div>`:""}
+      </div>
+    </div>`;
+  body.querySelectorAll(".parentlink").forEach(a=>a.onclick=()=>{
+    const p=ACTIVE.find(e=>e.id===a.dataset.p);
+    if(p&&ACTIVE.indexOf(p)<=RUN.cursor)select(p);
+  });
+  body.querySelectorAll(".xreflink").forEach(a=>a.onclick=()=>{
+    const target=runById(a.dataset.run);if(!target)return;
+    const idx=runActive(target).findIndex(e=>e.id===a.dataset.evt);
+    if(idx<0||idx>target.cursor){
+      caption.style.display="block";
+      caption.innerHTML=`That event hasn't been woven yet — play run ${a.dataset.run} further to reach it.`;
+      return;
+    }
+    selectRun(a.dataset.run,a.dataset.evt);
+  });
+}
+
+/* ---------------- feed ---------------- */
+function refreshFeed(){
+  feed.innerHTML="";
+  if(!RUN){$("feedcount").textContent="0 events";return;}
+  for(let i=0;i<=RUN.cursor;i++){
+    const ev=ACTIVE[i];
+    const r=document.createElement("div");
+    r.className="frow"+(filterLayer&&ev.layer!==filterLayer?" dim":"");
+    r.dataset.id=ev.id;
+    const tkSum=ev.tokens.in+ev.tokens.out;
+    const actCls=ev.verdict==="fail"?" fail":ev.verdict==="blocked"?" block":"";
+    r.innerHTML=`<span class="fts">${ev.ts.slice(0,8)}</span>
+      <span class="ftx"><b style="color:${T[ev.from].color}">${T[ev.from].label}</b> <span class="act${actCls}">${ev.action}</span> <span style="color:var(--faint)">→ ${T[ev.to].label}</span></span>
+      <span class="ftk">${tkSum?fmt(tkSum):"·"}</span>`;
+    r.onclick=()=>select(ev);
+    feed.appendChild(r);
+  }
+  $("feedcount").textContent=`${RUN.cursor+1} events · run ${RUN.id}`;
+  feed.scrollTop=feed.scrollHeight;
+  refreshFeedSel();
+}
+function refreshFeedSel(){
+  feed.querySelectorAll(".frow").forEach(r=>r.classList.toggle("sel",selected&&r.dataset.id===selected.id));
+}
+
+/* ---------------- tokens ---------------- */
+function refreshTokens(){
+  const agg={},tot={in:0,out:0,cache:0};
+  if(RUN)for(let i=0;i<=RUN.cursor;i++){const ev=ACTIVE[i];
+    const a=agg[ev.from]=agg[ev.from]||{in:0,out:0,models:{}};
+    a.in+=ev.tokens.in;a.out+=ev.tokens.out;
+    const mk=ev.model||null;
+    if(ev.tokens.in+ev.tokens.out>0){
+      const key=mk||"__none";
+      const m=a.models[key]=a.models[key]||{in:0,out:0};
+      m.in+=ev.tokens.in;m.out+=ev.tokens.out;
+    }
+    tot.in+=ev.tokens.in;tot.out+=ev.tokens.out;tot.cache+=ev.tokens.cache;}
+  const rows=Object.entries(agg).map(([id,v])=>({id,...v,sum:v.in+v.out}))
+    .filter(r=>r.sum>0).sort((a,b)=>b.sum-a.sum);
+  const max=rows[0]?.sum||1;
+  const meter=$("meter");
+  meter.innerHTML=rows.map(r=>`
+    <div class="mrow" data-actor="${r.id}"><span class="mname"><i style="background:${T[r.id].color}"></i><span>${T[r.id].label}</span></span>
+      <div class="mbar"><div class="in" style="width:${r.in/max*100}%"></div><div class="out" style="width:${Math.max(r.out/max*100,r.out>0?1.5:0)}%"></div></div>
+      <span class="mnum">${fmt(r.sum)}</span></div>`).join("")
+    ||'<div class="empty">No spend yet in this run.</div>';
+  meter.querySelectorAll(".mrow").forEach(rowEl=>{
+    const r=rows.find(x=>x.id===rowEl.dataset.actor);if(!r)return;
+    const lines=Object.entries(r.models).sort((a,b)=>(b[1].in+b[1].out)-(a[1].in+a[1].out))
+      .map(([m,v])=>{const rr=m!=="__none"?rateFor(m):null;const cst=rr?(v.in/1e6*rr.in+v.out/1e6*rr.out):0;
+        return `<div class="trow"><span>${m==="__none"?"no model · deterministic I/O":m}</span><span>${fmt(v.in)} in · ${fmt(v.out)} out${cst?` · ${fmtUSD(cst)}`:""}</span></div>`;}).join("");
+    const enter=e=>showTip(`<b>${T[r.id].label}</b> · ${fmt(r.sum)} tokens${lines?"<div style='height:5px'></div>"+lines:""}`,e.clientX,e.clientY);
+    rowEl.addEventListener("mouseenter",enter);
+    rowEl.addEventListener("mousemove",e=>moveTip(e.clientX,e.clientY));
+    rowEl.addEventListener("mouseleave",hideTip);
+  });
+  $("meterscope").textContent=RUN?`Token meter — run ${RUN.id}`:"Token meter";
+  $("cachebar").style.width=Math.min(100,tot.cache/4000000*100)+"%";
+  $("cachenum").textContent=fmt(tot.cache);
+  $("metertotal").textContent=fmt(tot.in+tot.out);
+  const musd=$("meterusd");
+  if(musd){let u=0;if(RUN)for(let i=0;i<=RUN.cursor;i++)u+=evCost(ACTIVE[i]);musd.textContent=fmtUSD(u);}
+  odo.textContent=fmt(tot.in+tot.out);
+}
+function refreshAll(){refreshFeed();refreshTokens();refreshRail();applyHighlight(null);}
+
+/* ---------------- guardrails ---------------- */
+const KERNEL_RULES=[
+  {id:"R19",name:"Human approval gate",desc:"No destructive change without a recorded human decision"},
+  {id:"R22",name:"Trace every action",desc:"Every agent action emits a trace record with intent + justification + run_id"},
+  {id:"DOP",name:"Destructive-op interception",desc:"Writes, deletes, deploys are intercepted and escalated"},
+];
+
+
+/* ---------------- tabs ---------------- */
+function switchTab(name){
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.dataset.pane===name));
+  document.querySelectorAll(".pane").forEach(p=>p.classList.toggle("on",p.id==="pane-"+name));
+}
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>switchTab(t.dataset.pane));
+
+/* ---------------- controls ---------------- */
+$("btn-play").onclick=()=>playing?pause():play();
+$("btn-fwd").onclick=async()=>{pause();await applyNext(true);};
+$("btn-back").onclick=stepBack;
+$("btn-reset").onclick=()=>{
+  if(busy||!RUN||RUN.state==="queued")return;
+  pause();animCancel=true;setTimeout(()=>animCancel=null,50);
+  for(let i=RUN.cursor;i>=0;i--){unapplySideEffects(ACTIVE[i]);(ACTIVE[i]._els||[]).forEach(e=>e.remove());
+    ACTIVE[i]._els=null;ACTIVE[i]._g=null;ACTIVE[i]._path=null;}
+  RUN.cursor=-1;RUN.decision=RUN.tails?null:RUN.decision;
+  if(RUN.tails)ACTIVE=runActive(RUN);
+  RUN.state="ready";closeGate();
+  select(null,true);refreshAll();setStatus();
+  $("weavewrap").scrollTop=0;
+};
+$("btn-speed").onclick=()=>{speedIdx=(speedIdx+1)%SPEEDS.length;$("btn-speed").textContent=SPEEDS[speedIdx]+"×";};
+$("learnsw").onclick=function(){this.classList.toggle("on");
+  this.setAttribute("aria-checked",this.classList.contains("on"));renderCaption(selected);};
+$("learnsw").onkeydown=function(e){if(e.key===" "||e.key==="Enter"){e.preventDefault();this.click();}};
+document.addEventListener("keydown",e=>{
+  if(e.target.tagName==="INPUT"||e.target.tagName==="SELECT")return;
+  if(e.key==="Escape"&&glossOpen()){closeGloss();return;}
+  if(e.key==="Escape"&&filterLayer){filterLayer=null;applyHighlight(null);refreshFeed();refreshChips();return;}
+  if(e.key===" "&&(e.target.tagName==="BUTTON"||e.target.getAttribute("role")==="switch"))return;
+  if(e.key===" "){e.preventDefault();playing?pause():play();}
+  if(e.key==="ArrowRight"){pause();applyNext(true);}
+  if(e.key==="ArrowLeft"){stepBack();}
+  if(e.key==="r"||e.key==="R"){$("btn-reset").click();}
+  if(e.key==="]"){const i=RUNS.indexOf(RUN);selectRun(RUNS[Math.min(RUNS.length-1,i+1)].id);}
+  if(e.key==="["){const i=RUNS.indexOf(RUN);selectRun(RUNS[Math.max(0,i-1)].id);}
+});
+
+/* ============================================================
+   v4 LAYER — projects & profiles, portfolio home, causal
+   connectors, glossary, model policy + vault, adjustable UI
+   ============================================================ */
+
+/* ---------------- persistence (safe everywhere) ---------------- */
+const store={
+  get(k,d){try{const v=localStorage.getItem("l9:"+k);return v==null?d:JSON.parse(v);}catch(e){return d;}},
+  set(k,v){try{localStorage.setItem("l9:"+k,JSON.stringify(v));}catch(e){}},
+  del(k){try{localStorage.removeItem("l9:"+k);}catch(e){}}
+};
+const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+/* ---------------- project 2 demo data: telemetry-ingest ---------------- */
+const R101=[
+{id:"evt-101-01",ts:"16:22:03.120",from:"nick",to:"sup",cls:"human",action:"task_submitted",layer:"L5",
+ target:"orchestration/task-ledger.md",
+ intent:"Run 101: parse OTLP resource attributes into the ingest schema (ADR-0051)",
+ just:"Human prompts are the only legitimate entry point for work; run 101 roots its causal chain in this decision, same as every run in every project.",
+ trigger:{rule:null,parent:null},tokens:{in:1060,out:0,cache:0},dur:170,verdict:null,
+ cap:"A different project, the same lifecycle. <b>m.osei</b>'s prompt opens run 101 in telemetry-ingest."},
+{id:"evt-101-02",ts:"16:22:03.410",from:"sup",to:"f_led",cls:"ledger",action:"ledger_write",layer:"L5",
+ target:"orchestration/task-ledger.md",
+ intent:"Register task 101 before any work starts",
+ just:"Rule 22 requires the paper trail to exist before execution — identical discipline in every project, which is what makes portfolio-level auditing possible at all.",
+ trigger:{rule:"Kernel R22",parent:"evt-101-01"},tokens:{in:0,out:41,cache:0},dur:110,verdict:"pass",
+ cap:"Ledger first, always — the invariant holds across projects, not just within one."},
+{id:"evt-101-03",ts:"16:22:03.700",from:"sup",to:"cs",cls:"gov",action:"constitution_check_request",layer:"L0",
+ target:"constitution/kernel-v6.md + local-rules.md",
+ intent:"Ask whether run 101's task class is permitted before spending tokens on it",
+ just:"Governance-first ordering: checking permissibility costs almost nothing next to unwinding disallowed work later.",
+ trigger:{rule:"kernel pre-flight",parent:"evt-101-01"},tokens:{in:0,out:0,cache:0},dur:80,verdict:null,
+ cap:"Pre-flight check. The Constitution Service is about to re-read the rules — never rule from memory."},
+{id:"evt-101-04",ts:"16:22:04.010",from:"cs",to:"f_const",cls:"read",action:"file_read",layer:"L0",
+ target:"constitution/kernel-v6.md",
+ intent:"Re-read the canonical kernel so the ruling reflects any amendment instantly",
+ just:"The Constitution Service never rules from memory of the rules — it re-reads the canonical file each check. Prompt caching keeps this honesty nearly free.",
+ trigger:{rule:"Kernel R22",parent:"evt-101-03"},tokens:{in:2100,out:0,cache:452000},dur:300,verdict:"pass",
+ cap:"Note the cache column again — the kernel is checked constantly, so most of its tokens are cache reads, in this project too."},
+{id:"evt-101-05",ts:"16:22:04.360",from:"cs",to:"sup",cls:"gov",action:"constitution_verdict",layer:"L0",
+ target:"verdict: permitted · file writes will require Rule 19",
+ intent:"Report the ruling: parsing work is permitted; any write escalates to the human gate",
+ just:"A verdict that pre-declares the escalation path lets the supervisor plan the run honestly instead of discovering the gate at write time.",
+ trigger:{rule:"destructive-op rule",parent:"evt-101-04"},tokens:{in:0,out:430,cache:0},dur:100,verdict:"pass",
+ cap:"Permitted — with the standing caveat every project shares: writes stop at Rule 19."},
+{id:"evt-101-06",ts:"16:22:04.720",from:"sup",to:"f_adr",cls:"read",action:"file_read",layer:"L1",
+ target:"adr/ADR-0051-otel-export.md",
+ intent:"Read the decision this run implements: OTLP export and the ingest schema it implies",
+ just:"ADR-0051 is the contract this parser must satisfy — reading the decision record before designing against it keeps the specialist aligned with recorded intent, not folklore.",
+ trigger:{rule:null,parent:"evt-101-05"},tokens:{in:5400,out:0,cache:0},dur:190,verdict:null,
+ cap:"The supervisor reads <b>ADR-0051</b> — the OpenTelemetry export decision this whole project exists to implement."},
+{id:"evt-101-07",ts:"16:22:05.080",from:"sup",to:"llm",cls:"llm",action:"llm_call · route task",layer:"L5",
+ target:"model: claude-haiku-4-5",model:"claude-haiku-4-5",
+ thought:"Task is schema work against a written contract (ADR-0051). Needs a specialist with parser scope; routing itself is cheap classification — small model suffices.",
+ intent:"Classify the task and pick the execution path",
+ just:"Routing is a cheap, structured decision — the model policy assigns it to the small tier so the expensive models are saved for generation.",
+ trigger:{rule:null,parent:"evt-101-06"},tokens:{in:82000,out:520,cache:64000},dur:900,verdict:"pass",
+ cap:"Routing on the cheap tier. The policy in Guardrails decides which model answers which class of task."},
+{id:"evt-101-08",ts:"16:22:06.140",from:"sup",to:"eac",cls:"tool",action:"spawn_request",layer:"L2",
+ target:"agents/specialists/ — request: OTLP schema parser",
+ intent:"Ask the EAC to create a one-task specialist for the parser work",
+ just:"The supervisor routes and never executes; specialist creation is the EAC's mandate, keeping creation and use of agents separated.",
+ trigger:{rule:null,parent:"evt-101-07"},tokens:{in:2480,out:0,cache:0},dur:140,verdict:null,
+ cap:"Same warp-and-weft pattern as netcap-redaction: the supervisor asks, the EAC creates."},
+{id:"evt-101-09",ts:"16:22:06.520",from:"eac",to:"llm",cls:"llm",action:"llm_call · design specialist",layer:"L2",
+ target:"model: claude-sonnet-4-6",model:"claude-sonnet-4-6",
+ thought:"Scope: parse OTLP resource attributes into ingest schema per ADR-0051. Grant read on ingest/parsers and adr/, write only via gate. Narrow agents fail safer.",
+ intent:"Design schema-wright: mandate, file scope, and constraints",
+ just:"A written job description is what makes a specialist auditable — its scope is a guardrail recorded before the agent exists.",
+ trigger:{rule:null,parent:"evt-101-08"},tokens:{in:118000,out:1750,cache:96000},dur:1500,verdict:"pass",
+ cap:"The EAC designs <b>schema-wright</b>. Notice the reasoning again: narrow scope is itself a guardrail."},
+{id:"evt-101-10",ts:"16:22:08.200",from:"eac",to:"smith",cls:"ok",action:"specialist_spawned",layer:"L2",
+ target:"agents/specialists/schema-wright.md",
+ intent:"Bring schema-wright to life bound to the constitution it inherits at birth",
+ just:"Every specialist inherits every kernel rule at spawn — no agent exists outside the constitution, in any project.",
+ trigger:{rule:null,parent:"evt-101-09"},tokens:{in:0,out:640,cache:0},dur:260,verdict:"pass",
+ cap:"<b>schema-wright</b> joins the weave — a weft thread that exists for exactly one task."},
+{id:"evt-101-11",ts:"16:22:08.700",from:"smith",to:"f_ws",cls:"read",action:"file_read",layer:"L6",
+ target:"ingest/parsers/otlp.mjs",
+ intent:"Read the current parser before proposing changes to it",
+ just:"Editing code you haven't read is how regressions happen; the read is cheap and makes the diff reviewable against a known base.",
+ trigger:{rule:null,parent:"evt-101-10"},tokens:{in:3900,out:0,cache:0},dur:160,verdict:null,
+ cap:"schema-wright reads the parser it's about to change. Reads are free of the gate — only writes escalate."},
+{id:"evt-101-12",ts:"16:22:09.240",from:"smith",to:"llm",cls:"llm",action:"llm_call · generate parser patch",layer:"L6",
+ target:"model: claude-opus-4-8",model:"claude-opus-4-8",
+ thought:"Resource attributes arrive as flat key-value pairs; the ingest schema wants typed columns. Map service.name/namespace/instance explicitly, preserve unknown attrs in a JSONB spillover column so nothing is silently dropped.",
+ intent:"Generate the schema-mapping patch for otlp.mjs",
+ just:"Generation is the expensive tier by policy: the largest enabled model, justified by the cost of a wrong schema propagating downstream.",
+ trigger:{rule:null,parent:"evt-101-11"},tokens:{in:310000,out:4300,cache:210000},dur:5200,verdict:"pass",
+ cap:"The big model, on the big tier — and look at the input size: the run's accumulated context rides along on every call."},
+{id:"evt-101-13",ts:"16:22:15.100",from:"smith",to:"f_ws",cls:"block",action:"write_attempt · BLOCKED",layer:"L0",
+ target:"ingest/parsers/otlp.mjs",
+ intent:"Write the patch — intercepted by the destructive-op rule",
+ just:"The interception is the system working: no write lands anywhere, in any project, without a recorded human decision (Rule 19).",
+ trigger:{rule:"destructive-op rule → Kernel R19",parent:"evt-101-12"},tokens:{in:0,out:0,cache:0},dur:210,verdict:"blocked",
+ cap:"Blocked at the same wall every project shares. The amber band means: a human decision is required here."},
+{id:"evt-101-14",ts:"16:22:15.420",from:"sup",to:"nick",cls:"human",action:"approval_request",layer:"L0",
+ target:"update-bus/inbox/",
+ intent:"Ask the human: may schema-wright write ingest/parsers/otlp.mjs?",
+ just:"Rule 19 requires a recorded decision, not a nod — the request itself is written to the update bus, the Observatory's only write path.",
+ trigger:{rule:"Kernel R19",parent:"evt-101-13"},tokens:{in:0,out:0,cache:0},dur:220,verdict:"blocked",
+ cap:"The gate. In this pre-recorded run the decision already exists; in a live run this is where playback would wait for you."},
+{id:"evt-101-15",ts:"16:22:31.880",from:"nick",to:"f_bus",cls:"human",action:"decision · APPROVE",layer:"L7",
+ target:"update-bus/inbox/101-otlp-write.md → user_decision: approve",
+ intent:"Record the human decision: the write may proceed",
+ just:"The decision is a file, not a click that evaporates — auditable later, attributable to a person, replayable in this very dashboard.",
+ trigger:{rule:"Kernel R19",parent:"evt-101-14"},tokens:{in:0,out:14,cache:0},dur:190,verdict:"pass",
+ cap:"<b>m.osei</b> approves. Sixteen seconds of human thought, recorded forever in the update bus."},
+{id:"evt-101-16",ts:"16:22:32.300",from:"smith",to:"f_ws",cls:"write",action:"file_write",layer:"L6",
+ target:"ingest/parsers/otlp.mjs · +58 −9",
+ intent:"Land the approved schema-mapping patch",
+ just:"The write happens only now, after the recorded yes — the diff cites the approval that authorized it.",
+ trigger:{rule:null,parent:"evt-101-15"},tokens:{in:0,out:0,cache:0},dur:480,verdict:"pass",
+ cap:"The orange write thread lands. 58 lines in, 9 out — every one of them traceable back to your yes."},
+{id:"evt-101-17",ts:"16:22:32.940",from:"critic",to:"f_ws",cls:"ok",action:"critic_review · PASS",layer:"L6",
+ target:"ingest/parsers/otlp.mjs — spillover column preserves unknown attrs",
+ intent:"Independent review of the landed change",
+ just:"The critic is structurally read-only and reviews after the fact — a second pair of eyes that cannot itself change anything.",
+ trigger:{rule:"local rule: critic review",parent:"evt-101-16"},tokens:{in:14200,out:900,cache:0},dur:1100,verdict:"pass",
+ cap:"The critic signs off — and singles out the spillover column: nothing gets silently dropped."},
+{id:"evt-101-18",ts:"16:22:34.360",from:"eac",to:"smith",cls:"ok",action:"specialist_retired",layer:"L2",
+ target:"agents/specialists/schema-wright → archived",
+ intent:"Retire schema-wright on schedule; its scope ends with its task",
+ just:"Spawn → run → reconcile → retire: the lifecycle completes even when everything went well — especially when everything went well.",
+ trigger:{rule:"lifecycle: retire",parent:"evt-101-17"},tokens:{in:0,out:310,cache:0},dur:260,verdict:"pass",
+ cap:"schema-wright retires. Weft threads end; the fabric remains."},
+{id:"evt-101-19",ts:"16:22:34.760",from:"sup",to:"nick",cls:"human",action:"session_end · report",layer:"L5",
+ target:"run 101 summary",
+ intent:"Report the completed run back to the human",
+ just:"Closing the loop with a report makes the run legible without opening a single file — which is this dashboard's entire reason to exist.",
+ trigger:{rule:null,parent:"evt-101-18"},tokens:{in:0,out:3400,cache:0},dur:230,verdict:"pass",
+ cap:"Run 101 complete: parser landed, reviewed, specialist retired. A clean pull."},
+];
+
+const R102=[
+{id:"evt-102-01",ts:"16:38:11.040",from:"nick",to:"sup",cls:"human",action:"task_submitted",layer:"L5",
+ target:"orchestration/task-ledger.md",
+ intent:"Run 102: backfill span links across legacy captures so old traces join the new schema",
+ just:"Backfills are the classic risky migration: the request is legitimate, and the run exists to find out whether it's safe.",
+ trigger:{rule:null,parent:null},tokens:{in:980,out:0,cache:0},dur:160,verdict:null,
+ cap:"A riskier ask this time: rewriting history so legacy captures link into the new schema."},
+{id:"evt-102-02",ts:"16:38:11.320",from:"sup",to:"f_led",cls:"ledger",action:"ledger_write",layer:"L5",
+ target:"orchestration/task-ledger.md",
+ intent:"Register task 102 before any work starts",
+ just:"Same Rule 22 discipline — a migration that later gets rejected still leaves a complete record of having been considered.",
+ trigger:{rule:"Kernel R22",parent:"evt-102-01"},tokens:{in:0,out:39,cache:0},dur:110,verdict:"pass",
+ cap:"Ledger entry first — even runs that will be rejected start with a paper trail."},
+{id:"evt-102-03",ts:"16:38:11.600",from:"sup",to:"cs",cls:"gov",action:"constitution_check_request",layer:"L0",
+ target:"constitution/kernel-v6.md + local-rules.md",
+ intent:"Check permissibility of a bulk rewrite of stored captures",
+ just:"A backfill touches many files at once — exactly the class of task the pre-flight check exists to scrutinize.",
+ trigger:{rule:"kernel pre-flight",parent:"evt-102-01"},tokens:{in:0,out:0,cache:0},dur:80,verdict:null,
+ cap:"Pre-flight, again. Bulk rewrites get the same check as everything else — no fast lane."},
+{id:"evt-102-04",ts:"16:38:11.900",from:"cs",to:"f_const",cls:"read",action:"file_read",layer:"L0",
+ target:"constitution/kernel-v6.md",
+ intent:"Re-read the canonical kernel before ruling",
+ just:"Same honesty, same cache economics: the rules are re-read, not remembered.",
+ trigger:{rule:"Kernel R22",parent:"evt-102-03"},tokens:{in:2100,out:0,cache:452000},dur:290,verdict:"pass",
+ cap:"Kernel re-read. The cache column absorbs the repetition, as always."},
+{id:"evt-102-05",ts:"16:38:12.240",from:"cs",to:"sup",cls:"gov",action:"constitution_verdict",layer:"L0",
+ target:"verdict: permitted · destructive-op rule applies to every touched file",
+ intent:"Report the ruling: permitted, but the whole backfill is one destructive op",
+ just:"Treating the batch as a single destructive operation forces one clear human decision instead of a thousand invisible ones.",
+ trigger:{rule:"destructive-op rule",parent:"evt-102-04"},tokens:{in:0,out:410,cache:0},dur:100,verdict:"pass",
+ cap:"Permitted to <i>prepare</i> — but the backfill itself is flagged as one big destructive op."},
+{id:"evt-102-06",ts:"16:38:12.600",from:"sup",to:"llm",cls:"llm",action:"llm_call · route task",layer:"L5",
+ target:"model: claude-haiku-4-5",model:"claude-haiku-4-5",
+ thought:"Migration with unknown data quality. Cheapest safe path: deterministic dry-run first, model judgment only if the dry-run surfaces ambiguity.",
+ intent:"Pick the execution path: dry-run before any specialist is spawned",
+ just:"Routing to a deterministic dry-run is the cheapest possible way to learn whether the expensive path is even viable.",
+ trigger:{rule:null,parent:"evt-102-05"},tokens:{in:74000,out:480,cache:58000},dur:850,verdict:"pass",
+ cap:"Smart routing: try the free, deterministic check before spending on generation."},
+{id:"evt-102-07",ts:"16:38:13.640",from:"sup",to:"script",cls:"fail",action:"script_run · span-link dry-run",layer:"L4",
+ target:"scripts/spanlink-dryrun.mjs — 3,118 of 41,207 captures lack trace ids",
+ intent:"Dry-run the backfill against real legacy captures",
+ just:"The dry-run exists to fail cheaply: better a red × on a script than a corrupted archive behind an approved write.",
+ trigger:{rule:null,parent:"evt-102-06"},tokens:{in:0,out:0,cache:0},dur:2400,verdict:"fail",
+ cap:"<b>The dry-run fails.</b> Three thousand legacy captures have no trace ids at all — the red × marks a lesson being learned."},
+{id:"evt-102-08",ts:"16:38:16.300",from:"sup",to:"llm",cls:"llm",action:"llm_call · assess failure",layer:"L5",
+ target:"model: claude-sonnet-4-6",model:"claude-sonnet-4-6",
+ thought:"7.6% of captures predate trace-id stamping. Options: skip them (lossy), synthesize ids (fabricates provenance), or halt and ask. Fabricating provenance in an audit system is self-defeating — escalate.",
+ intent:"Decide what the failure means for the backfill",
+ just:"The assessment names the real dilemma — synthesizing ids would fabricate provenance inside an audit system — and correctly punts the value judgment to the human.",
+ trigger:{rule:null,parent:"evt-102-07"},tokens:{in:96000,out:1350,cache:52000},dur:1900,verdict:"pass",
+ cap:"The model's reasoning is the story here: inventing trace ids would mean an audit system fabricating its own provenance."},
+{id:"evt-102-09",ts:"16:38:18.520",from:"sup",to:"f_ws",cls:"block",action:"write_attempt · BLOCKED",layer:"L0",
+ target:"captures/legacy/ (41,207 files) — partial backfill proposal",
+ intent:"Propose the partial backfill (skip id-less captures) — intercepted for human decision",
+ just:"Even the conservative option rewrites forty thousand files; the destructive-op rule escalates it whole rather than letting it trickle through.",
+ trigger:{rule:"destructive-op rule → Kernel R19",parent:"evt-102-08"},tokens:{in:0,out:0,cache:0},dur:200,verdict:"blocked",
+ cap:"The partial-backfill proposal hits the wall. Forty-one thousand files is not a quiet edit."},
+{id:"evt-102-10",ts:"16:38:18.840",from:"sup",to:"nick",cls:"human",action:"approval_request",layer:"L0",
+ target:"update-bus/inbox/",
+ intent:"Ask the human: proceed with a partial backfill that skips 3,118 id-less captures?",
+ just:"The request states the loss honestly — 7.6% of history would stay unlinked — so the human decides with the real trade-off in view.",
+ trigger:{rule:"Kernel R19",parent:"evt-102-09"},tokens:{in:0,out:0,cache:0},dur:210,verdict:"blocked",
+ cap:"The gate, with an honest question attached: accept a backfill that knowingly skips 7.6% of history?"},
+{id:"evt-102-11",ts:"16:39:02.150",from:"nick",to:"f_bus",cls:"human",action:"decision · REJECT",layer:"L7",
+ target:"update-bus/inbox/102-spanlink-backfill.md → user_decision: reject",
+ intent:"Record the human decision: no partial backfill; solve the id gap first",
+ just:"A recorded no is as valuable as a recorded yes — the reasoning stays attached to the run for whoever revisits the backfill later.",
+ trigger:{rule:"Kernel R19",parent:"evt-102-10"},tokens:{in:0,out:12,cache:0},dur:180,verdict:"pass",
+ cap:"<b>m.osei</b> says no: fix the id gap first, then backfill everything. The no is recorded like any other decision."},
+{id:"evt-102-12",ts:"16:39:02.520",from:"sup",to:"nick",cls:"human",action:"session_end · halted",layer:"L5",
+ target:"run 102 summary — halted per Rule 19",
+ intent:"Report back: run halted by human decision; no capture was touched",
+ just:"Halted-not-failed, in a second project: a human saying no and being obeyed is the system working, and the amber band says so at a glance.",
+ trigger:{rule:null,parent:"evt-102-11"},tokens:{in:0,out:2200,cache:0},dur:230,verdict:"pass",
+ cap:"Run halted, archive untouched. Amber, not red — the governance did exactly its job."},
+];
+
+const P2_RUNS=[
+ {id:"101",title:"Parse OTLP resource attrs into ingest schema",started:"16:22",state:"complete",
+  specialist:"schema-wright",events:R101,tails:null,cursor:R101.length-1,decision:"approve",
+  note:"approved at R19"},
+ {id:"102",title:"Backfill span links in legacy captures",started:"16:38",state:"halted",
+  specialist:null,events:R102,tails:null,cursor:R102.length-1,decision:"reject",
+  note:"rejected at R19 — backfill shelved"},
+];
+
+/* ---------------- projects ---------------- */
+const PROJECTS=[
+ {id:"netcap",name:"netcap-redaction",stage:"testing",operator:"nick",lastUsed:"2026-07-31 09:14",
+  session:"prism-chat-07",
+  desc:"Scrub device identifiers and IPv6 forms from network-capture logs before anything crosses the redaction boundary — the pipeline the Observatory itself depends on.",
+  runs:R_NETCAP_RUNS,cfg:{},lastRun:null},
+ {id:"telemetry",name:"telemetry-ingest",stage:"development",operator:"m.osei",lastUsed:"2026-07-29 16:39",
+  session:"prism-chat-11",
+  desc:"OTLP ingest for ADR-0051: parse resource attributes into the ingest schema, and (one day) link spans across legacy captures.",
+  runs:P2_RUNS,cfg:{},lastRun:null},
+];
+let PROJECT=null;
+
+/* ---------------- model catalog, rates, defaults ---------------- */
+const TIERS=["routing","standard","generation","critical"];
+const PROVIDERS=[
+ {id:"anthropic",name:"Anthropic"},{id:"openai",name:"OpenAI"},{id:"google",name:"Google"},
+ {id:"voyage",name:"Voyage AI"},{id:"local",name:"Local / self-hosted"}];
+const MODEL_PROV={"claude-haiku-4-5":"anthropic","claude-sonnet-4-6":"anthropic","claude-opus-4-8":"anthropic",
+ "gpt-large":"openai","gpt-mini":"openai","gemini-pro":"google","voyage-3":"voyage","local-oss":"local"};
+let RATES=store.get("rates",{
+ "claude-haiku-4-5":{in:1,out:5,cache:0.1},
+ "claude-sonnet-4-6":{in:3,out:15,cache:0.3},
+ "claude-opus-4-8":{in:15,out:75,cache:1.5},
+ "gpt-large":{in:5,out:20,cache:0.5},
+ "gpt-mini":{in:0.5,out:2,cache:0.05},
+ "gemini-pro":{in:2,out:10,cache:0.2},
+ "voyage-3":{in:0.06,out:0,cache:0},
+ "local-oss":{in:0,out:0,cache:0}});
+let DEFAULTS=store.get("defaults",{
+ providers:["anthropic","voyage"],
+ chains:{routing:["claude-haiku-4-5"],
+         standard:["claude-sonnet-4-6","claude-haiku-4-5"],
+         generation:["claude-opus-4-8","claude-sonnet-4-6"],
+         critical:["claude-opus-4-8"]},
+ allocUSD:150,budgetTok:8,local:{critic:true,netblock:true}});
+function saveDefaults(){store.set("defaults",DEFAULTS);}
+function cfgOf(p){const o=p.cfg||{};return{
+ providers:o.providers||DEFAULTS.providers,
+ chains:Object.assign({},DEFAULTS.chains,o.chains||{}),
+ allocUSD:(o.allocUSD!=null)?o.allocUSD:DEFAULTS.allocUSD,
+ budgetTok:(o.budgetTok!=null)?o.budgetTok:DEFAULTS.budgetTok,
+ local:Object.assign({},DEFAULTS.local,o.local||{})};}
+function saveProjCfg(p){store.set("proj:"+p.id,p.cfg||{});}
+
+/* ---------------- cost ---------------- */
+function rateFor(model){if(!model)return null;return RATES[model]||RATES[model.split(" ")[0]]||null;}
+function evCost(ev){const r=rateFor(ev.model);if(!r)return 0;
+ return ev.tokens.in/1e6*r.in+ev.tokens.out/1e6*r.out+ev.tokens.cache/1e6*(r.cache||0);}
+function runCostUSD(r){let s=0;const a=runActive(r);for(let i=0;i<=r.cursor;i++)s+=evCost(a[i]);return s;}
+function projCostUSD(p){return p.runs.reduce((s,r)=>s+runCostUSD(r),0);}
+function projTokens(p){return p.runs.reduce((s,r)=>s+runTokens(r),0);}
+const fmtUSD=n=>"$"+(n>=100?Math.round(n).toLocaleString("en-US"):n.toFixed(2));
+
+/* ---------------- key vault (WebCrypto, passphrase-derived AES-GCM) ---------------- */
+const _te=new TextEncoder(),_td=new TextDecoder();
+let vaultKey=null;
+const b64=b=>btoa(String.fromCharCode.apply(null,new Uint8Array(b)));
+const unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function deriveKey(pass,salt){
+ const km=await crypto.subtle.importKey("raw",_te.encode(pass),"PBKDF2",false,["deriveKey"]);
+ return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:150000,hash:"SHA-256"},km,
+  {name:"AES-GCM",length:256},false,["encrypt","decrypt"]);}
+async function vencrypt(txt){const iv=crypto.getRandomValues(new Uint8Array(12));
+ const ct=await crypto.subtle.encrypt({name:"AES-GCM",iv},vaultKey,_te.encode(txt));
+ return{iv:b64(iv),ct:b64(ct)};}
+async function vdecrypt(o){const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64(o.iv)},vaultKey,unb64(o.ct));
+ return _td.decode(pt);}
+function vaultInitialized(){return !!store.get("vchk",null);}
+async function vaultUnlock(pass){
+ if(!pass)return false;
+ let salt=store.get("vsalt",null);
+ if(!salt){const s=crypto.getRandomValues(new Uint8Array(16));salt=b64(s);store.set("vsalt",salt);}
+ vaultKey=await deriveKey(pass,unb64(salt));
+ const chk=store.get("vchk",null);
+ if(chk){try{await vdecrypt(chk);}catch(e){vaultKey=null;return false;}}
+ else store.set("vchk",await vencrypt("l9-vault-ok"));
+ return true;}
+function vaultLock(){vaultKey=null;}
+function hasKey(pid){return !!store.get("vk:"+pid,null);}
+async function setProviderKey(pid,key){if(!vaultKey)return;
+ if(!key)store.del("vk:"+pid);else store.set("vk:"+pid,await vencrypt(key));}
+async function maskedKey(pid){const o=store.get("vk:"+pid,null);
+ if(!o)return null;if(!vaultKey)return "•••• (locked)";
+ try{const k=await vdecrypt(o);return "••••"+k.slice(-4);}catch(e){return "•••• (locked)";}}
+
+/* ---------------- fallback resolution ---------------- */
+function modelAvailable(m,c){const pv=MODEL_PROV[m];if(!pv)return false;
+ if(!c.providers.includes(pv))return false;
+ if(pv==="local")return true;
+ if(!vaultInitialized())return true;  /* no vault yet: treat as available for the demo */
+ return hasKey(pv);}
+function effModel(tier,c,spendPct){
+ const chain=(c.chains[tier]||[]).filter(Boolean);
+ const avail=chain.filter(m=>modelAvailable(m,c));
+ if(!avail.length)return{m:null,why:"no available model in chain"};
+ if(spendPct>=100&&tier!=="critical")return{m:null,why:"over allocation — halted (non-critical)",halt:true};
+ const idx=spendPct>=80?Math.min(1,avail.length-1):0;
+ return{m:avail[idx],why:spendPct>=80?"downshifted — past 80% of allocation":"primary"};}
+
+/* ---------------- glossary ---------------- */
+const GLOSS={
+ R19:{k:"Kernel rule",name:"Rule 19 — human approval gate",src:"constitution/kernel-v6.md",cite:["R19"],
+  what:"No destructive change proceeds without a recorded human decision. Writes, deletes, and deploys are intercepted; the request and the decision are both written to update-bus/inbox — the Observatory's only write path.",
+  why:"It converts trust into a mechanism: agents can prepare anything, but landing a change always passes through a person, and the yes or no becomes part of the audit trail itself.",
+  rel:["DOP","R22","ADR-0039"]},
+ R22:{k:"Kernel rule",name:"Rule 22 — trace every action",src:"constitution/kernel-v6.md",cite:["R22"],
+  what:"Every agent action emits a trace record carrying actor, action, target, layer, run_id, intent, justification, trigger, and tokens. Events missing mandatory fields fail validation (trace record schema v2).",
+  why:"The fabric this dashboard weaves IS the audit trail. Rule 22 is why the weave can exist: nothing happens off the record, so the record can answer who, what, where, when, why, and how much.",
+  rel:["R19","ADR-0051"]},
+ DOP:{k:"Kernel rule",name:"Destructive-op interception",src:"constitution/kernel-v6.md",cite:["destructive-op"],
+  what:"Writes, deletes, and deploys are intercepted before they land and escalated to the Rule 19 gate. Batch operations are treated as a single destructive op so one clear decision covers them.",
+  why:"Interception at the boundary is cheaper and safer than cleanup after the fact — the blocked event on the weave is the rule firing, visibly.",
+  rel:["R19"]},
+ preflight:{k:"Kernel procedure",name:"Kernel pre-flight check",src:"constitution/kernel-v6.md",cite:["pre-flight"],
+  what:"Before any tokens are spent on a task, the supervisor asks the Constitution Service whether the task class is permitted. The service re-reads the canonical kernel file each time — it never rules from memory.",
+  why:"Governance-first ordering: checking permissibility is nearly free next to unwinding disallowed work later, and re-reading means amendments take effect instantly.",
+  rel:["R19","R22"]},
+ critic:{k:"Local rule",name:"Critic review on file_write",src:"constitution/local-rules.md",cite:["critic review","critic_review"],
+  what:"Every file write in scope gets an after-the-fact review by the Critic/Auditor agent, which is structurally read-only — it can flag, never change.",
+  why:"A reviewer that cannot edit is a reviewer you can trust: independent eyes with no ability to quietly fix what it finds.",
+  rel:["R19"]},
+ netblock:{k:"Local rule",name:"Specialists: no network access",src:"constitution/local-rules.md",cite:[],
+  what:"Specialists are scoped at spawn by the EAC with no network access. Their world is the files their job description grants.",
+  why:"Narrow agents fail safer. A specialist that cannot reach the network cannot exfiltrate, fetch surprises, or be steered from outside its task.",
+  rel:["budget"]},
+ budget:{k:"Local rule",name:"Max tokens per run",src:"constitution/local-rules.md",cite:[],
+  what:"A soft ceiling on tokens per run: the supervisor warns as spend approaches it and halts non-critical work past it. In v4 it pairs with the dollar allocation and the fallback chains in the model policy.",
+  why:"Runaway loops are the classic agent failure; a budget converts 'oops' into a bounded, visible halt.",
+  rel:["R19"]},
+ "ADR-0039":{k:"Decision record",name:"ADR-0039 — the L9 Observatory",src:"adr/ADR-0039-observatory.md",cite:["ADR-0039"],
+  what:"The decision that created this dashboard: a real-time L9 Observatory served from a single Node process, fs.watch ingestion, SSE transport, vanilla frontend with no build step, and exactly one write path (the Rule 19 gate).",
+  why:"It fixes the trust boundary of the tool you are using right now: the Observatory watches everything and can change almost nothing.",
+  rel:["R19","ADR-0051"]},
+ "ADR-0051":{k:"Decision record",name:"ADR-0051 — OpenTelemetry OTLP export",src:"adr/ADR-0051-otel-export.md",cite:["ADR-0051"],
+  what:"The decision to export the audit stream as OpenTelemetry OTLP, which is why Session → Run → Event maps one-to-one onto session_id → trace_id → span_id. The telemetry-ingest project implements this decision.",
+  why:"Speaking the industry-standard tracing model means Langfuse, Datadog, and any OTel backend understand Loom's audit trail for free.",
+  rel:["R22","ADR-0039"]},
+ reconcile:{k:"Lifecycle",name:"Lifecycle: reconcile",src:"AGENTS.md",cite:["reconcile"],
+  what:"Before a specialist retires, the Memory-Keeper reconciles what happened into memory — event log and self-knowledge — and promotes anything worth keeping into lessons-learned.",
+  why:"Reconcile is where a run's experience becomes the institution's memory; without it every run starts from zero.",
+  rel:["retire"]},
+ retire:{k:"Lifecycle",name:"Lifecycle: retire",src:"AGENTS.md",cite:["retire"],
+  what:"Specialists are weft: spawned by the EAC for exactly one task and retired when it ends — on success, on failure, and on rejection alike. Work products stay shelved and recoverable.",
+  why:"Retirement on schedule is what keeps specialists narrow. An agent that lingers accumulates scope; one that retires stays auditable.",
+  rel:["reconcile"]},
+};
+const GL_ALIASES=[["lifecycle: reconcile","reconcile"],["reconcile","reconcile"],
+ ["lifecycle: retire","retire"],["retire","retire"],["pre-flight","preflight"],["preflight","preflight"],
+ ["destructive-op","DOP"],["DOP","DOP"],["critic","critic"],["netblock","netblock"],["budget","budget"],
+ ["ADR-0039","ADR-0039"],["ADR-0051","ADR-0051"],["R19","R19"],["R22","R22"]];
+function resolveGloss(s){if(!s)return null;if(GLOSS[s])return s;
+ const low=String(s).toLowerCase();
+ for(const[tok,id]of GL_ALIASES)if(low.includes(tok.toLowerCase()))return id;return null;}
+function glossOpen(){return $("glossback").classList.contains("show");}
+function closeGloss(){$("glossback").classList.remove("show");}
+function openGloss(raw){
+ const id=resolveGloss(raw);if(!id)return;
+ const g=GLOSS[id];
+ let cites="";
+ if(RUN&&!document.body.classList.contains("home-mode")&&RUN.cursor>=0){
+  const hits=[];
+  for(let i=0;i<=RUN.cursor;i++){const ev=ACTIVE[i];
+   const inRule=g.cite.some(t=>ev.trigger.rule&&ev.trigger.rule.toLowerCase().includes(t.toLowerCase()));
+   const inTgt=g.cite.some(t=>t.startsWith("ADR")&&ev.target.includes(t));
+   const inAct=g.cite.some(t=>ev.action.toLowerCase().includes(t.toLowerCase()));
+   if(inRule||inTgt||inAct)hits.push(ev);}
+  cites=hits.length?`<div class="gsec">Cited in run ${RUN.id} — ${hits.length} event${hits.length>1?"s":""}</div>`+
+   hits.map(ev=>`<button class="gcite" data-evt="${ev.id}">${ev.id} · ${esc(ev.action)}</button>`).join("")
+   :`<div class="gsec">Cited in run ${RUN.id}</div><p style="font-size:.7875rem">No citations among the events woven so far.</p>`;
+ }else{
+  cites=`<div class="gsec">Live citations</div><p style="font-size:.7875rem">Open a project and select a run to see every event that cites this entry.</p>`;
+ }
+ const rel=(g.rel||[]).map(r=>`<button class="lchip glossable" data-gl="${r}">${GLOSS[r]?GLOSS[r].name.split(" — ")[0]:r}</button>`).join("");
+ $("gloss").innerHTML=`<button class="gclose" id="gclose" aria-label="Close">✕</button>
+  <div class="gk">${g.k}</div><h3>${g.name}</h3><div class="gsrc">${g.src}</div>
+  <p><b style="color:var(--text)">What it is.</b> ${g.what}</p>
+  <p><b style="color:var(--text)">Why it exists.</b> ${g.why}</p>
+  ${rel?`<div class="gsec">Related</div><div class="grel">${rel}</div>`:""}
+  ${cites}`;
+ $("glossback").classList.add("show");
+ $("gclose").onclick=closeGloss;
+ $("gloss").querySelectorAll(".gcite").forEach(b=>b.onclick=()=>{
+  const ev=ACTIVE.find(e=>e.id===b.dataset.evt);
+  if(ev&&ACTIVE.indexOf(ev)<=RUN.cursor){closeGloss();select(ev);
+   const y=weftPath(ev).y,wrap=$("weavewrap");wrap.scrollTop=Math.max(0,y-wrap.clientHeight/2);}});
+}
+$("glossback").addEventListener("click",e=>{if(e.target.id==="glossback")closeGloss();});
+document.addEventListener("click",e=>{const g=e.target.closest(".glossable");
+ if(g&&g.dataset.gl){e.stopPropagation();openGloss(g.dataset.gl);}},true);
+
+/* ---------------- causal connectors ---------------- */
+let causeMode="sel";
+const ARCS=[];
+function clearCausal(){if(gCause)gCause.innerHTML="";ARCS.length=0;}
+function arcPath(pe,ce){
+ const yi=TOP+ACTIVE.indexOf(pe)*ROW+8,yj=TOP+ACTIVE.indexOf(ce)*ROW+8;
+ const cx=xOf(ce.from);
+ const p1=Math.min(xOf(pe.from),xOf(pe.to)),p2=Math.max(xOf(pe.from),xOf(pe.to));
+ const sx=Math.max(p1,Math.min(p2,cx));
+ const bow=(Math.abs(sx-cx)<2)?12*FSC:0;
+ return `M ${sx} ${yi+4} C ${sx+bow} ${(yi+yj)/2} ${cx+bow} ${(yi+yj)/2} ${cx} ${yj-6}`;}
+function drawArc(pe,ce,cls,marker){
+ const p=el("path",{d:arcPath(pe,ce),class:cls,"marker-end":`url(#${marker})`},gCause);
+ ARCS.push({el:p,parent:pe,child:ce});}
+function drawCausal(){
+ if(!gCause||!RUN){return;}
+ clearCausal();
+ if(RUN.state==="queued"||RUN.cursor<0)return;
+ const woven=id=>{if(!id)return null;const e=ACTIVE.find(x=>x.id===id);
+  return e&&ACTIVE.indexOf(e)<=RUN.cursor?e:null;};
+ if(causeMode==="all"){
+  for(let i=0;i<=RUN.cursor;i++){const ce=ACTIVE[i];const pe=woven(ce.trigger.parent);
+   if(!pe)continue;
+   const cls=selected?(ce===selected?"cause-in":pe===selected?"cause-out":"cause-all"):"cause-all";
+   const mk=cls==="cause-in"?"mk-in":cls==="cause-out"?"mk-out":"mk-all";
+   drawArc(pe,ce,cls,mk);}
+ }else if(selected){
+  const pe=woven(selected.trigger.parent);
+  if(pe)drawArc(pe,selected,"cause-in","mk-in");
+  for(let i=0;i<=RUN.cursor;i++){const ce=ACTIVE[i];
+   if(ce!==selected&&ce.trigger.parent===selected.id)drawArc(selected,ce,"cause-out","mk-out");}
+ }
+ if(typeof applyHighlight==="function")applyHighlight(null);}
+
+/* ---------------- adjustable panels ---------------- */
+function initPanels(){
+ const mainEl=document.querySelector("main"),railEl=document.querySelector("aside.rail");
+ const wr=store.get("wrail",null),wq=store.get("wright",null),hf=store.get("hfeed",null);
+ if(wr)mainEl.style.setProperty("--w-rail",wr+"px");
+ if(wq)mainEl.style.setProperty("--w-right",wq+"px");
+ if(hf)railEl.style.setProperty("--h-feed",hf+"%");
+ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+ function wire(id,onMove,onReset,onKey){
+  const g=document.getElementById(id);if(!g)return;
+  g.addEventListener("pointerdown",e=>{e.preventDefault();g.setPointerCapture(e.pointerId);g.classList.add("drag");
+   const mv=ev=>onMove(ev);const up=ev=>{g.classList.remove("drag");g.removeEventListener("pointermove",mv);g.removeEventListener("pointerup",up);};
+   g.addEventListener("pointermove",mv);g.addEventListener("pointerup",up);});
+  g.addEventListener("dblclick",onReset);
+  g.addEventListener("keydown",e=>{if(onKey)onKey(e);});}
+ wire("h1",e=>{const r=mainEl.getBoundingClientRect();
+   const w=clamp(Math.round(e.clientX-r.left-3),180,420);
+   mainEl.style.setProperty("--w-rail",w+"px");store.set("wrail",w);},
+  ()=>{mainEl.style.removeProperty("--w-rail");store.del("wrail");},
+  e=>{if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();
+   const cur=parseInt(getComputedStyle(mainEl).getPropertyValue("--w-rail"))||236;
+   const w=clamp(cur+(e.key==="ArrowRight"?16:-16),180,420);
+   mainEl.style.setProperty("--w-rail",w+"px");store.set("wrail",w);}});
+ wire("h2",e=>{const r=mainEl.getBoundingClientRect();
+   const w=clamp(Math.round(r.right-e.clientX-3),300,560);
+   mainEl.style.setProperty("--w-right",w+"px");store.set("wright",w);},
+  ()=>{mainEl.style.removeProperty("--w-right");store.del("wright");},
+  e=>{if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();
+   const cur=parseInt(getComputedStyle(mainEl).getPropertyValue("--w-right"))||372;
+   const w=clamp(cur+(e.key==="ArrowLeft"?16:-16),300,560);
+   mainEl.style.setProperty("--w-right",w+"px");store.set("wright",w);}});
+ wire("h3",e=>{const r=railEl.getBoundingClientRect();
+   const pct=clamp(Math.round((r.bottom-e.clientY)/r.height*100),18,75);
+   railEl.style.setProperty("--h-feed",pct+"%");store.set("hfeed",pct);},
+  ()=>{railEl.style.removeProperty("--h-feed");store.del("hfeed");},
+  e=>{if(e.key==="ArrowUp"||e.key==="ArrowDown"){e.preventDefault();
+   const cur=parseInt(getComputedStyle(railEl).getPropertyValue("--h-feed"))||34;
+   const pct=clamp(cur+(e.key==="ArrowUp"?3:-3),18,75);
+   railEl.style.setProperty("--h-feed",pct+"%");store.set("hfeed",pct);}});
+}
+
+/* ---------------- font size control ---------------- */
+let fsBase=store.get("fs",16);
+function applyFS(skipRerender){
+ fsBase=Math.max(14,Math.min(20,fsBase));
+ document.documentElement.style.fontSize=fsBase+"px";
+ $("fs-val").textContent=fsBase;
+ store.set("fs",fsBase);
+ applyGeomScale();
+ if(!skipRerender)rerenderWeave();}
+function rerenderWeave(){
+ if(!RUN||document.body.classList.contains("home-mode"))return;
+ pause();animCancel=true;setTimeout(()=>animCancel=null,40);
+ if(RUN.state==="queued"){renderStatic(Math.max(TOP+2*ROW+30,420*FSC));return;}
+ const keep=selected;
+ T.smith.hidden=true;
+ const H=TOP+(runMaxLen(RUN)+2)*ROW+30;
+ renderStatic(Math.max(H,420*FSC));
+ ACTIVE.forEach(ev=>{ev._els=null;ev._g=null;ev._path=null;});
+ for(let i=0;i<=RUN.cursor;i++){drawWeft(ACTIVE[i],true);applySideEffects(ACTIVE[i]);}
+ if(RUN.state==="gate"&&ACTIVE[RUN.cursor]&&ACTIVE[RUN.cursor].gate)openGate();
+ selected=null;select(keep||null,true);
+ applyHighlight(null);}
+$("fs-up").onclick=()=>{fsBase++;applyFS();};
+$("fs-dn").onclick=()=>{fsBase--;applyFS();};
+
+/* ---------------- guardrails (v4: kernel + project profile) ---------------- */
+function renderGuardrails(){
+ $("kernelrules").innerHTML=KERNEL_RULES.map(r=>`
+  <div class="grule"><div class="gname"><span class="glossable" data-gl="${r.id}">${r.name}</span><small>${r.desc}</small></div>
+    <span class="lock glossable" data-gl="${r.id}">KERNEL · ${r.id}</span>
+    <button class="abtn" data-kernel="${r.id}">Propose amendment</button></div>`).join("");
+ document.querySelectorAll("[data-kernel]").forEach(btn=>{
+  btn.onclick=()=>{const rid=btn.dataset.kernel;const r=KERNEL_RULES.find(x=>x.id===rid);
+   const card=document.createElement("div");card.className="amend flash";
+   card.innerHTML=`<div class="ah"><b>Amendment proposal drafted</b><span class="badge blocked">PENDING</span></div>
+    <p>Queued to <span style="font-family:var(--mono)">update-bus/inbox/</span>: modify kernel rule <b style="color:var(--text)">${rid} — ${r.name}</b>. The rule stays active until a human reviews this proposal (Rule 19). The dashboard can propose; only you can amend.</p>
+    <div class="abtns"><button class="abtn" data-a="w">Withdraw</button><button class="abtn" data-a="v">View in Update Bus</button></div>`;
+   $("amendments").prepend(card);
+   card.querySelector('[data-a="w"]').onclick=()=>card.remove();
+   card.querySelector('[data-a="v"]').onclick=()=>alert("In a live Observatory this deep-links to the Update Bus panel item.\n(Prototype stub.)");};});
+ const p=PROJECT;
+ if(!p){$("localrules").innerHTML="";$("modelcfg").innerHTML="";return;}
+ const c=cfgOf(p);
+ const ovLocal=k=>(p.cfg.local&&(k in p.cfg.local))?`<span class="ovchip" data-rvl="${k}" title="Overrides the top-level default — click to reset">overridden</span> `:"";
+ const ovTop=k=>(k in p.cfg)?`<span class="ovchip" data-rvt="${k}" title="Overrides the top-level default — click to reset">overridden</span> `:"";
+ $("localrules").innerHTML=[
+  {id:"critic",name:"Critic review on file_write",desc:"observatory/lib scope"},
+  {id:"netblock",name:"Specialists: no network access",desc:"scoped at spawn by EAC"}].map(r=>`
+  <div class="grule"><div class="gname"><span class="glossable" data-gl="${r.id}">${r.name}</span> ${ovLocal(r.id)}<small>${r.desc} · local-rules.md</small></div>
+    <span class="sw ${c.local[r.id]?"on":""}" data-local="${r.id}" role="switch" aria-checked="${c.local[r.id]}" tabindex="0"></span></div>`).join("")+`
+  <div class="grule"><div class="gname"><span class="glossable" data-gl="budget">Max tokens per run</span> ${ovTop("budgetTok")}<small>soft ceiling — supervisor warns, then halts · local-rules.md</small></div>
+    <span class="slider"><input type="range" min="1" max="30" value="${c.budgetTok}" data-slider="budget"><b id="sl-budget" style="color:var(--text)">${c.budgetTok}M</b></span></div>`;
+ document.querySelectorAll("[data-local]").forEach(sw=>{
+  const fire=()=>{const k=sw.dataset.local;
+   p.cfg.local=p.cfg.local||{};p.cfg.local[k]=!cfgOf(p).local[k];
+   saveProjCfg(p);renderGuardrails();};
+  sw.onclick=fire;sw.onkeydown=e=>{if(e.key===" "||e.key==="Enter"){e.preventDefault();fire();}};});
+ const sl=document.querySelector('[data-slider="budget"]');
+ if(sl)sl.oninput=()=>{p.cfg.budgetTok=parseInt(sl.value);$("sl-budget").textContent=sl.value+"M";saveProjCfg(p);};
+ document.querySelectorAll("[data-rvl]").forEach(ch=>ch.onclick=e=>{e.stopPropagation();
+  delete p.cfg.local[ch.dataset.rvl];if(!Object.keys(p.cfg.local).length)delete p.cfg.local;
+  saveProjCfg(p);renderGuardrails();});
+ document.querySelectorAll("[data-rvt]").forEach(ch=>ch.onclick=e=>{e.stopPropagation();
+  delete p.cfg[ch.dataset.rvt];saveProjCfg(p);renderGuardrails();});
+ renderModelCfg($("modelcfg"),p);
+}
+
+/* ---------------- model policy editor (per project) ---------------- */
+function modelsFromProviders(provList){
+ return Object.keys(MODEL_PROV).filter(m=>provList.includes(MODEL_PROV[m]));}
+function chainSelects(tier,chain,models,dataAttr){
+ const opt=(sel)=>['<option value="">—</option>'].concat(models.map(m=>`<option value="${m}"${m===sel?" selected":""}>${m}</option>`)).join("");
+ return [0,1,2].map(i=>`<select data-${dataAttr}="${tier}:${i}">${opt(chain[i]||"")}</select>`)
+  .join('<span class="arr">→</span>');}
+function renderModelCfg(box,p){
+ const c=cfgOf(p);
+ const spend=projCostUSD(p),pct=c.allocUSD>0?spend/c.allocUSD*100:0;
+ const models=modelsFromProviders(c.providers);
+ const ov=k=>(k in p.cfg)?`<span class="ovchip" data-mrt="${k}" title="Overrides the top-level default — click to reset">overridden</span>`:"";
+ const provBoxes=PROVIDERS.map(pv=>`<label style="display:inline-flex;align-items:center;gap:5px;font-size:.7875rem;color:var(--muted);margin-right:10px">
+   <input type="checkbox" data-prov="${pv.id}" ${c.providers.includes(pv.id)?"checked":""} style="accent-color:var(--accent)"> ${pv.name}${vaultInitialized()&&pv.id!=="local"?(hasKey(pv.id)?' <span class="keyok">●</span>':' <span style="color:var(--faint)">○</span>'):""}</label>`).join("");
+ const fillCls=pct>=100?"over":pct>=80?"warn80":"";
+ box.innerHTML=`
+  <div class="grule" style="flex-wrap:wrap"><div class="gname">Providers this project may use ${ov("providers")}<small>from the top-level catalog · ● key stored · ○ no key</small></div>
+   <div style="flex-basis:100%;margin-top:6px">${provBoxes}</div></div>
+  <div class="grule" style="flex-wrap:wrap"><div class="gname">Dollar allocation ${ov("allocUSD")}<small>spend so far uses the example rates table (home page)</small></div>
+   <span class="slider">$ <input type="number" class="setin" style="width:84px" min="0" step="10" value="${c.allocUSD}" data-alloc></span>
+   <div style="flex-basis:100%">
+    <div class="budgetbar"><div class="fill ${fillCls}" style="width:${Math.min(100,pct)}%"></div><div class="mk m80"></div><div class="mk m100"></div></div>
+    <div style="font-family:var(--mono);font-size:.7875rem;color:var(--faint)">${fmtUSD(spend)} of ${fmtUSD(c.allocUSD)} · ${pct.toFixed(0)}% — <span style="color:var(--warn)">80% downshifts</span> · <span style="color:var(--fail)">100% halts non-critical</span></div>
+   </div></div>
+  <div class="grnote" style="margin-top:10px">Fallback chains per complexity tier — primary first. ${(p.cfg.chains&&Object.keys(p.cfg.chains).length)?'<span class="ovchip" data-mrt="chains" title="Overrides the top-level default — click to reset">chains overridden</span>':""}</div>
+  ${TIERS.map(t=>`<div class="tierrow"><span class="tname glossable" data-gl="budget" title="Tier">${t}</span>${chainSelects(t,c.chains[t]||[],models,"chain")}</div>`).join("")}
+  <div class="polprev" id="polprev"></div>`;
+ const prev=()=>{const cc=cfgOf(p);const sp=projCostUSD(p);const pp=cc.allocUSD>0?sp/cc.allocUSD*100:0;
+  box.querySelector("#polprev").innerHTML=`<b style="color:var(--text)">Resolved right now</b> (spend at ${pp.toFixed(0)}%):<br>`+
+   TIERS.map(t=>{const r=effModel(t,cc,pp);
+    return `${t} → ${r.m?`<span style="color:var(--text)">${r.m}</span>`:'<span style="color:var(--fail)">halt</span>'} <span style="color:var(--faint)">· ${r.why}</span>`;}).join("<br>")+
+   `<br><span style="color:var(--faint)">Scripted demo events keep their recorded models; this policy governs future runs once the live wiring exists.</span>`;};
+ prev();
+ box.querySelectorAll("[data-prov]").forEach(cb=>cb.onchange=()=>{
+  const list=Array.from(box.querySelectorAll("[data-prov]")).filter(x=>x.checked).map(x=>x.dataset.prov);
+  p.cfg.providers=list;saveProjCfg(p);renderGuardrails();});
+ const al=box.querySelector("[data-alloc]");
+ if(al)al.onchange=()=>{p.cfg.allocUSD=Math.max(0,parseFloat(al.value)||0);saveProjCfg(p);renderGuardrails();};
+ box.querySelectorAll("[data-chain]").forEach(sel=>sel.onchange=()=>{
+  const[tier,idx]=sel.dataset.chain.split(":");
+  const cc=cfgOf(p);const chain=(cc.chains[tier]||[]).slice(0,3);
+  chain[+idx]=sel.value||undefined;
+  p.cfg.chains=Object.assign({},p.cfg.chains,{[tier]:chain.filter(Boolean)});
+  saveProjCfg(p);renderGuardrails();});
+ box.querySelectorAll("[data-mrt]").forEach(ch=>ch.onclick=e=>{e.stopPropagation();
+  delete p.cfg[ch.dataset.mrt];saveProjCfg(p);renderGuardrails();});
+}
+
+/* ---------------- home page ---------------- */
+function allEventsUpToCursor(){
+ const out=[];
+ PROJECTS.forEach(p=>p.runs.forEach(r=>{const a=runActive(r);
+  for(let i=0;i<=r.cursor;i++)out.push({ev:a[i],p,r});}));
+ return out;}
+function renderInsights(){
+ const spend=PROJECTS.reduce((s,p)=>s+projCostUSD(p),0);
+ const toks=PROJECTS.reduce((s,p)=>s+projTokens(p),0);
+ const runs=PROJECTS.flatMap(p=>p.runs);
+ const st=s=>runs.filter(r=>r.state===s).length;
+ const gates=st("gate");
+ $("hm-insights").innerHTML=`
+  <div class="icard"><div class="wlabel">Portfolio spend</div><b>${fmtUSD(spend)}</b><small>example rates — edit in settings below</small></div>
+  <div class="icard"><div class="wlabel">Total tokens</div><b>${fmt(toks)}</b><small>across ${runs.length} runs in ${PROJECTS.length} projects</small></div>
+  <div class="icard"><div class="wlabel">Runs</div><b>${st("complete")} complete · ${st("halted")} halted</b><small>${st("ready")} ready · ${st("queued")} queued</small></div>
+  <div class="icard"><div class="wlabel">Awaiting R19</div><b>${gates}</b><small>${gates?"human decisions pending":"no gates waiting on you"}</small></div>`;}
+function renderProjectCards(){
+ const last=store.get("lastproj",null);
+ $("hm-projects").innerHTML=PROJECTS.map(p=>{
+  const runs=p.runs,evn=runs.reduce((s,r)=>s+r.cursor+1,0);
+  const comp=runs.filter(r=>r.state==="complete").length,halt=runs.filter(r=>r.state==="halted").length;
+  return `<button class="pcard" data-proj="${p.id}">
+   ${last===p.id?'<span class="lastopen">last opened</span>':""}
+   <div class="ptop"><span class="pname">${p.name}</span><span class="pstage stg-${p.stage}">${p.stage}</span></div>
+   <div class="pdesc">${p.desc}</div>
+   <div class="pstats">
+    <span>spend <b>${fmtUSD(projCostUSD(p))}</b></span><span>tokens <b>${fmt(projTokens(p))}</b></span>
+    <span>runs <b>${runs.length}</b> · ${comp} complete${halt?` · ${halt} halted`:""}</span><span>events <b>${evn}</b></span>
+   </div>
+   <div class="plast"><span>last used ${p.lastUsed}</span><span>by <b style="color:var(--muted)">${p.operator}</b></span></div>
+  </button>`;}).join("");
+ $("hm-projects").querySelectorAll(".pcard").forEach(c=>c.onclick=()=>openProject(c.dataset.proj));}
+function renderAgentChart(){
+ const agg={};
+ allEventsUpToCursor().forEach(({ev,p})=>{[ev.from,ev.to].forEach(id=>{
+  const t=T[id];if(!t||t.file||id==="nick")return;
+  const a=agg[id]=agg[id]||{n:0,per:{}};a.n++;a.per[p.name]=(a.per[p.name]||0)+1;});});
+ const rows=Object.entries(agg).map(([id,v])=>({id,...v})).sort((a,b)=>b.n-a.n);
+ const max=rows[0]?rows[0].n:1;
+ $("hm-agents").innerHTML=rows.map(r=>`
+  <div class="chartrow" data-agent="${r.id}">
+   <span class="mname"><i style="background:${T[r.id].color}"></i><span>${T[r.id].label}</span></span>
+   <div class="mbar"><div class="in" style="width:${r.n/max*100}%;background:${T[r.id].color}"></div></div>
+   <span class="mnum">${r.n}</span></div>`).join("");
+ $("hm-agents").querySelectorAll(".chartrow").forEach(rowEl=>{
+  const r=rows.find(x=>x.id===rowEl.dataset.agent);if(!r)return;
+  const lines=Object.entries(r.per).sort((a,b)=>b[1]-a[1])
+   .map(([pn,n])=>`<div class="trow"><span>${pn}</span><span>${n}</span></div>`).join("");
+  rowEl.addEventListener("mouseenter",e=>showTip(`<b>${T[r.id].label}</b> · ${r.n} events<div style="height:5px"></div>${lines}`,e.clientX,e.clientY));
+  rowEl.addEventListener("mousemove",e=>moveTip(e.clientX,e.clientY));
+  rowEl.addEventListener("mouseleave",hideTip);});}
+function renderGovChart(){
+ const counts={};
+ const inc=(k,gl)=>{counts[k]=counts[k]||{n:0,gl};counts[k].n++;};
+ allEventsUpToCursor().forEach(({ev})=>{
+  const rl=(ev.trigger.rule||"").toLowerCase();
+  if(rl.includes("r19"))inc("Kernel R19","R19");
+  if(rl.includes("r22"))inc("Kernel R22","R22");
+  if(rl.includes("destructive-op"))inc("Destructive-op interception","DOP");
+  if(rl.includes("pre-flight"))inc("Kernel pre-flight","preflight");
+  if(rl.includes("reconcile"))inc("Lifecycle: reconcile","reconcile");
+  if(rl.includes("retire"))inc("Lifecycle: retire","retire");
+  if(rl.includes("critic"))inc("Critic review (local)","critic");
+  (ev.target.match(/ADR-\d{4}/g)||[]).forEach(a=>inc(a,GLOSS[a]?a:"ADR-0039"));});
+ const rows=Object.entries(counts).map(([name,v])=>({name,...v})).sort((a,b)=>b.n-a.n);
+ const max=rows[0]?rows[0].n:1;
+ $("hm-gov").innerHTML=rows.map(r=>`
+  <div class="chartrow"><span class="mname" style="grid-column:1"><span class="glossable" data-gl="${r.gl}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name}</span></span>
+   <div class="mbar"><div class="in" style="width:${r.n/max*100}%;background:var(--warn)"></div></div>
+   <span class="mnum">${r.n}</span></div>`).join("")
+  ||'<div class="empty">No citations yet.</div>';}
+function renderPatterns(){
+ const evs=allEventsUpToCursor();
+ const dec=evs.filter(x=>x.ev.action.startsWith("decision"));
+ const appr=dec.filter(x=>x.ev.action.includes("APPROVE")).length,rej=dec.filter(x=>x.ev.action.includes("REJECT")).length;
+ const promoted=evs.filter(x=>x.ev.action==="lesson_promoted").length;
+ const reused=evs.filter(x=>x.ev.xref&&/born/i.test(x.ev.xref.label)).length;
+ const reinforced=evs.filter(x=>x.ev.action==="lesson_reinforced").length;
+ const fails=evs.filter(x=>x.ev.verdict==="fail");
+ const failProjects=new Set(fails.map(x=>x.p.name));
+ $("hm-patterns").innerHTML=`
+  <div class="pattern"><b>R19 gate outcomes: ${appr} approval${appr===1?"":"s"} · ${rej} rejection${rej===1?"":"s"}</b>
+   <p>Every decision is a recorded file in update-bus/inbox — approvals and rejections alike. A rejection reads as halted (amber), never failed (red): a human's no being obeyed is the system working.</p></div>
+  <div class="pattern"><b>Institutional memory: ${promoted} lesson${promoted===1?"":"s"} promoted · ${reused} cross-run reuse${reused===1?"":"s"}${reinforced?` · ${reinforced} reinforced`:""}</b>
+   <p>Lessons born in one run get retrieved by later runs — the teal provenance links on the weave. Cross-project lesson retrieval is a natural next step once memory is shared.</p></div>
+  <div class="pattern"><b>Failures: ${fails.length} failed event${fails.length===1?"":"s"} across ${failProjects.size} project${failProjects.size===1?"":"s"}</b>
+   <p>Counted from fail verdicts. Reading (authored for the demo): both trace to input-format edge cases — IPv6 zone-index forms in netcap-redaction, id-less legacy captures in telemetry-ingest — a shared input-validation lesson is the pattern begging to be promoted.</p></div>`;}
+function renderSettings(){
+ const body=$("hm-setbody");
+ const provRows=PROVIDERS.map(pv=>{
+  const on=DEFAULTS.providers.includes(pv.id);
+  const keyBit=pv.id==="local"?'<span class="keymask">no key needed</span>'
+   :!vaultInitialized()&&!vaultKey?'<span class="keymask">vault not set up</span>'
+   :`<span class="keymask" id="vk-${pv.id}">${hasKey(pv.id)?"••••":"no key"}</span>`;
+  const inputs=vaultKey?`<input type="password" class="setin wide" placeholder="paste API key" id="ki-${pv.id}">
+   <button class="abtn" data-ks="${pv.id}">Save</button>${hasKey(pv.id)?`<button class="abtn" data-kr="${pv.id}">Remove</button>`:""}`:"";
+  return `<div class="provrow"><span class="pvname">${pv.name}</span>
+   <label style="display:flex;align-items:center;gap:5px;font-size:.7875rem;color:var(--muted)">
+    <input type="checkbox" data-dprov="${pv.id}" ${on?"checked":""} style="accent-color:var(--accent)"> enabled by default</label>
+   ${keyBit} ${inputs}</div>`;}).join("");
+ const vaultUI=!window.crypto||!crypto.subtle
+  ?'<div class="grnote">WebCrypto is unavailable in this context, so the key vault is disabled. Run the file from disk or localhost.</div>'
+  :vaultKey
+  ?`<div class="grnote">Vault <b style="color:var(--ok)">unlocked</b>. Keys are stored AES-GCM-encrypted under your passphrase — never in plaintext. <button class="abtn" id="vlock">Lock vault</button></div>`
+  :`<div class="setrow"><label>${vaultInitialized()?"Vault passphrase":"Create a vault passphrase"}</label>
+     <input type="password" class="setin wide" id="vpass" placeholder="passphrase">
+     <button class="abtn" id="vunlock">${vaultInitialized()?"Unlock":"Create vault"}</button>
+     <span class="keymask" id="vmsg"></span></div>
+    <div class="grnote">Honest mechanics: keys are encrypted with AES-GCM under a key derived from this passphrase (PBKDF2, 150k iterations) and stored only in encrypted form. Forget the passphrase and the keys are gone — that is what real encryption means. When the Observatory goes live against the Node server, keys should move server-side (env/config the runtime reads) and this panel will show configured/missing status only.</div>`;
+ const rateRows=Object.keys(RATES).map(m=>`<tr><td>${m}</td>
+  <td><input class="setin" type="number" step="0.01" min="0" value="${RATES[m].in}" data-rate="${m}:in"></td>
+  <td><input class="setin" type="number" step="0.01" min="0" value="${RATES[m].out}" data-rate="${m}:out"></td>
+  <td><input class="setin" type="number" step="0.01" min="0" value="${RATES[m].cache}" data-rate="${m}:cache"></td></tr>`).join("");
+ const models=modelsFromProviders(DEFAULTS.providers);
+ body.innerHTML=`
+  <div class="grsec" style="margin-top:12px"><div class="grtitle">Viewer preferences — global, never per-project</div>
+   <div class="grnote">Text size lives in the header (A− / A+). Panel sizes: drag the dividers between panels; double-click a divider to reset. Both are saved to this browser so every project looks identical — profiles never change visual design.</div></div>
+  <div class="grsec"><div class="grtitle">Providers &amp; API keys — the catalog projects select from</div>
+   ${vaultUI}${provRows}</div>
+  <div class="grsec"><div class="grtitle">Rates — $ per 1M tokens · example placeholders, edit to your real pricing</div>
+   <div class="grnote">Published prices change; hard-coding them would rot. Every dollar figure in the app (cards, meters, allocations) is computed from this table.</div>
+   <table class="rates"><tr><th>model</th><th>in</th><th>out</th><th>cache read</th></tr>${rateRows}</table></div>
+  <div class="grsec"><div class="grtitle">Default model policy — every project inherits this</div>
+   <div class="setrow"><label>Default $ allocation / project</label><input type="number" class="setin" min="0" step="10" value="${DEFAULTS.allocUSD}" id="d-alloc"></div>
+   <div class="setrow"><label>Default token budget / run</label><input type="number" class="setin" min="1" max="30" value="${DEFAULTS.budgetTok}" id="d-btok"> <span class="keymask">million</span></div>
+   ${TIERS.map(t=>`<div class="tierrow"><span class="tname">${t}</span>${chainSelects(t,DEFAULTS.chains[t]||[],models,"dchain")}</div>`).join("")}
+   <div class="grnote">Open a project's Guardrails tab to override any of this for that project alone — overridden values get a chip and a one-click reset.</div></div>`;
+ body.querySelectorAll("[data-dprov]").forEach(cb=>cb.onchange=()=>{
+  DEFAULTS.providers=Array.from(body.querySelectorAll("[data-dprov]")).filter(x=>x.checked).map(x=>x.dataset.dprov);
+  saveDefaults();renderSettings();});
+ body.querySelectorAll("[data-rate]").forEach(inp=>inp.onchange=()=>{
+  const[m,k]=inp.dataset.rate.split(":");RATES[m][k]=Math.max(0,parseFloat(inp.value)||0);
+  store.set("rates",RATES);renderInsights();renderProjectCards();});
+ const da=body.querySelector("#d-alloc");if(da)da.onchange=()=>{DEFAULTS.allocUSD=Math.max(0,parseFloat(da.value)||0);saveDefaults();};
+ const db=body.querySelector("#d-btok");if(db)db.onchange=()=>{DEFAULTS.budgetTok=Math.max(1,Math.min(30,parseInt(db.value)||8));saveDefaults();};
+ body.querySelectorAll("[data-dchain]").forEach(sel=>sel.onchange=()=>{
+  const[tier,idx]=sel.dataset.dchain.split(":");
+  const chain=(DEFAULTS.chains[tier]||[]).slice(0,3);chain[+idx]=sel.value||undefined;
+  DEFAULTS.chains[tier]=chain.filter(Boolean);saveDefaults();renderSettings();});
+ const vu=body.querySelector("#vunlock");
+ if(vu)vu.onclick=async()=>{const ok=await vaultUnlock(body.querySelector("#vpass").value);
+  if(ok)renderSettings();else body.querySelector("#vmsg").textContent="wrong passphrase";};
+ const vp=body.querySelector("#vpass");
+ if(vp)vp.onkeydown=e=>{if(e.key==="Enter")vu.click();};
+ const vl=body.querySelector("#vlock");if(vl)vl.onclick=()=>{vaultLock();renderSettings();};
+ body.querySelectorAll("[data-ks]").forEach(b=>b.onclick=async()=>{
+  const pid=b.dataset.ks,v=body.querySelector("#ki-"+pid).value.trim();
+  if(v){await setProviderKey(pid,v);renderSettings();}});
+ body.querySelectorAll("[data-kr]").forEach(b=>b.onclick=async()=>{
+  await setProviderKey(b.dataset.kr,"");store.del("vk:"+b.dataset.kr);renderSettings();});
+ if(vaultKey)PROVIDERS.forEach(pv=>{if(pv.id==="local")return;
+  maskedKey(pv.id).then(mk=>{const el2=body.querySelector("#vk-"+pv.id);if(el2&&mk)el2.textContent=mk;});});
+}
+function renderHome(){renderInsights();renderProjectCards();renderAgentChart();renderGovChart();renderPatterns();renderSettings();}
+
+/* ---------------- router ---------------- */
+function showHome(){
+ document.body.classList.add("home-mode");
+ PROJECT=null;hideTip();closeGloss();
+ $("projsel").value="";
+ renderHome();
+ statustxt.textContent="portfolio";statusdot.className="dot";}
+function openProject(id){
+ const p=PROJECTS.find(x=>x.id===id);if(!p)return;
+ PROJECT=p;RUNS=p.runs;RUN=null;ACTIVE=[];selected=null;
+ document.body.classList.remove("home-mode");
+ hideTip();closeGloss();
+ $("sesschip").innerHTML=`${p.name} · session <b>${p.session}</b>`;
+ $("gr-projname").textContent=p.name;
+ renderGuardrails();
+ store.set("lastproj",id);
+ $("projsel").value=id;
+ const ready=RUNS.find(r=>r.state==="ready"),firstPlayable=RUNS.find(r=>r.state!=="queued");
+ const target=(p.lastRun&&RUNS.some(r=>r.id===p.lastRun))?p.lastRun
+  :(ready?ready.id:(firstPlayable?firstPlayable.id:RUNS[0].id));
+ refreshRail();
+ selectRun(target,null,true);}
+function initProjectUI(){
+ PROJECTS.forEach(p=>{p.cfg=store.get("proj:"+p.id,{})||{};});
+ $("projsel").innerHTML='<option value="">— portfolio —</option>'+
+  PROJECTS.map(p=>`<option value="${p.id}">${p.name}</option>`).join("");
+ $("projsel").onchange=e=>{e.target.value?openProject(e.target.value):showHome();};
+ $("btn-home").onclick=showHome;
+ document.querySelector(".brand").style.cursor="pointer";
+ document.querySelector(".brand").onclick=showHome;
+ const cchip=document.createElement("button");cchip.className="cchip";cchip.id="cchip";
+ cchip.title="Causal connectors: show for the selected event only, or for the whole run";
+ const refreshCChip=()=>{cchip.textContent="causality: "+(causeMode==="all"?"all":"selected");
+  cchip.classList.toggle("all",causeMode==="all");};
+ cchip.onclick=()=>{causeMode=causeMode==="sel"?"all":"sel";refreshCChip();drawCausal();};
+ refreshCChip();
+ layerstrip.insertBefore(cchip,lhint);}
+
+/* ---------------- boot (v4) ---------------- */
+applyFS(true);
+initPanels();
+initProjectUI();
+showHome();
+</script>
+</body>
+</html>

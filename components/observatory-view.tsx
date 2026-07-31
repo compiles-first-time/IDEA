@@ -164,7 +164,7 @@ export function CrossProjectView({ summary }: { summary: CrossProjectSummary }) 
             {summary.projects.map((p) => (
               <li key={p.name}>
                 <a
-                  href={`/observatory?project=${encodeURIComponent(p.name)}`}
+                  href={`/observatory/panels?project=${encodeURIComponent(p.name)}`}
                   className="flex items-center justify-between rounded border border-neutral-800 px-3 py-2 text-sm hover:border-neutral-700"
                 >
                   <span>
@@ -660,7 +660,7 @@ function Header({
             </span>
           )}
         </span>
-        <a href="/observatory" className="rounded border border-neutral-700 px-3 py-1.5 text-sm">
+        <a href="/observatory/panels" className="rounded border border-neutral-700 px-3 py-1.5 text-sm">
           All projects
         </a>
       </div>
