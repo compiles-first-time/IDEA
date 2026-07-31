@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import {
   ProjectRegistryError,
@@ -52,9 +52,35 @@ test("a valid project parses with sensible defaults", () => {
 });
 
 test("path traversal in root is rejected", () => {
-  for (const root of ["../../etc", "projects/../../..", "/absolute/path"]) {
+  // `..` is an attempt to leave the workspace by spelling. It stays refused.
+  for (const root of ["../../etc", "projects/../../.."]) {
     assert.throws(() => record({ root }), ProjectRegistryError, `should reject root "${root}"`);
   }
+});
+
+test("an absolute root is allowed — an existing checkout need not be re-cloned", () => {
+  // Isolation is about scope, not location: every tool is pinned to this one
+  // root either way (E-11.e). Requiring a second clone of a repo the user is
+  // already working in produces two diverging copies, which is worse.
+  assert.doesNotThrow(() => record({ root: "/home/me/dev/my-app" }));
+  assert.doesNotThrow(() => record({ root: "C:\\Users\\me\\dev\\my-app" }));
+});
+
+test("an absolute root containing IDEA's own tree is refused (E-11.b)", () => {
+  const ideaRoot = process.cwd();
+  const parent = resolve(ideaRoot, "..");
+  assert.throws(
+    () => projectRoot(ideaRoot, record({ root: parent })),
+    ProjectRegistryError,
+    "IDEA's source must never land inside an agent's scope",
+  );
+  assert.throws(() => projectRoot(ideaRoot, record({ root: ideaRoot })), ProjectRegistryError);
+});
+
+test("an unrelated absolute root resolves to itself", () => {
+  const ideaRoot = process.cwd();
+  const other = resolve(ideaRoot, "..", "some-other-project");
+  assert.equal(projectRoot(ideaRoot, record({ root: other })), other);
 });
 
 test("there is no launch command or dashboard URL — a project is not a process", () => {

@@ -201,7 +201,16 @@ async function workspaceFor(projectName: string) {
     if (!project) return null;
 
     const root = projectRoot(ideaRoot, project);
-    const scope = { projectRoot: root, ideaRoot };
+    // E-11.a — loom-template is never written to. Now that a project can point
+    // at any checkout, the upstream template can *be* the selected project, so
+    // the guard has to be set from the record rather than assumed absent.
+    const isTemplate =
+      project.repo === "loom-template" || /(^|[\\/])loom-template$/.test(root);
+    const scope = {
+      projectRoot: root,
+      ideaRoot,
+      ...(isTemplate ? { loomTemplateRoot: root } : {}),
+    };
     return {
       orientation: await readOrientation(root),
       tools: chatTools({ scope }),

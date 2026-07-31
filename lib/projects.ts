@@ -45,11 +45,15 @@ export const ProjectRecord = z
     autostart: z.boolean().default(false),
   })
   .superRefine((p, ctx) => {
-    if (isAbsolute(p.root) || p.root.split(/[\\/]/).includes("..")) {
+    // Absolute roots are allowed — an existing checkout should not have to be
+    // cloned a second time (see `projectRoot`). Traversal is not: `..` in a
+    // relative root is an attempt to leave the workspace by spelling, and an
+    // absolute path already says plainly where it points.
+    if (p.root.split(/[\\/]/).includes("..")) {
       ctx.addIssue({
         code: "custom",
         path: ["root"],
-        message: "must be a relative path inside the repo, with no traversal",
+        message: "must not contain '..' — give a relative path inside the repo, or an absolute one",
       });
     }
     if (!p.gitUrl.includes(`${p.owner}/${p.repo}`)) {
@@ -96,10 +100,44 @@ export function getProject(file: ProjectsFile, name: string): ProjectRecord | un
   return file.projects.find((p) => p.name === name);
 }
 
-/** Absolute checkout path, validated to stay inside the workspace. */
+/**
+ * Absolute checkout path for a project.
+ *
+ * Two shapes are allowed, and the difference matters:
+ *
+ * - **Relative** (`projects/my-app`) — a project IDEA provisioned into its own
+ *   workspace. Resolved against `ideaRoot` and required to stay inside it, so a
+ *   traversal in the registry cannot reach the rest of the disk.
+ * - **Absolute** (`C:/Users/me/dev/my-app`) — a checkout that already existed.
+ *   Deliberately permitted: requiring a second clone of a repo the user is
+ *   already working in is not a security property, it is an inconvenience that
+ *   produces two diverging copies.
+ *
+ * The isolation guarantee is unchanged either way. E-11.e says an agent working
+ * on project A cannot reach project B — that is about *scope*, enforced by
+ * pinning every tool to this one root, not about where the root sits. If
+ * anything an external root is safer: E-11.b (IDEA's own source is never
+ * agent-writable) is only hard to hold when projects are nested inside IDEA.
+ *
+ * What is still refused: a root that is IDEA's own tree, or that contains it.
+ * Either would put IDEA's source inside an agent's scope.
+ */
 export function projectRoot(ideaRoot: string, project: ProjectRecord): string {
-  const abs = resolve(ideaRoot, project.root);
-  const rel = relative(resolve(ideaRoot), abs);
+  const base = resolve(ideaRoot);
+
+  if (isAbsolute(project.root)) {
+    const abs = resolve(project.root);
+    if (abs === base || relative(abs, base) === "" || !relative(abs, base).startsWith("..")) {
+      // `relative(abs, base)` not starting with ".." means base is inside abs.
+      throw new ProjectRegistryError(
+        `project "${project.name}" would place IDEA's own source inside the agent's scope: ${abs} (E-11.b)`,
+      );
+    }
+    return abs;
+  }
+
+  const abs = resolve(base, project.root);
+  const rel = relative(base, abs);
   if (rel.startsWith("..") || rel.startsWith(sep) || isAbsolute(rel)) {
     throw new ProjectRegistryError(
       `project "${project.name}" resolves outside the workspace: ${abs}`,
