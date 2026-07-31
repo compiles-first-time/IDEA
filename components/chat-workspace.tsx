@@ -13,14 +13,9 @@ import {
   type PickableModel,
 } from "@/lib/chat-routing";
 
-type Repo = { full_name: string; private: boolean; default_branch: string; updated_at: string | null };
 type TreeFile = { path: string; size: number };
 
 export default function ChatWorkspace() {
-  const [repos, setRepos] = useState<Repo[]>([]);
-  const [reposLoading, setReposLoading] = useState(false);
-  const [activeRepo, setActiveRepo] = useState("");
-  const [branch, setBranch] = useState("");
   const [files, setFiles] = useState<TreeFile[]>([]);
   const [treeLoading, setTreeLoading] = useState(false);
   const [fileFilter, setFileFilter] = useState("");
@@ -54,7 +49,6 @@ export default function ChatWorkspace() {
   }, [messages]);
 
   useEffect(() => {
-    void loadRepos();
     void (async () => {
       try {
         const r = await fetch("/api/projects").then((x) => x.json());
@@ -96,7 +90,26 @@ export default function ChatWorkspace() {
     setConvoId("");
     setConvos([]);
     setMessages([]);
+    setFiles([]);
+    setAttached({});
+    setFileFilter("");
     if (!next) return;
+
+    // The sidebar shows THIS project's files. Previously it listed GitHub repos
+    // independently of the selection, so browsing a repo there looked like
+    // picking a project and changed nothing about the answer.
+    setTreeLoading(true);
+    try {
+      const t = await fetch(`/api/projects/${encodeURIComponent(next)}/files`).then((x) => x.json());
+      if (t.error) setNotice(t.error);
+      else {
+        setFiles(t.files ?? []);
+        if (t.truncated) setNotice("Large project — file list truncated. The model can still search all of it.");
+      }
+    } catch (e) {
+      setNotice(String(e));
+    }
+    setTreeLoading(false);
     try {
       const r = await fetch(`/api/projects/${encodeURIComponent(next)}/conversations`).then((x) =>
         x.json(),
@@ -148,43 +161,6 @@ export default function ChatWorkspace() {
     }
   }
 
-  async function loadRepos() {
-    setReposLoading(true);
-    setNotice("");
-    try {
-      const r = await fetch("/api/repos").then((x) => x.json());
-      if (r.error) setNotice(r.error);
-      else setRepos(r.repos ?? []);
-    } catch (e) {
-      setNotice(String(e));
-    }
-    setReposLoading(false);
-  }
-
-  async function openRepo(full: string) {
-    setActiveRepo(full);
-    setFiles([]);
-    setAttached({});
-    setFileFilter("");
-    setTreeLoading(true);
-    setNotice("");
-    const [owner, repo] = full.split("/");
-    try {
-      const r = await fetch(
-        `/api/repos/tree?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`,
-      ).then((x) => x.json());
-      if (r.error) setNotice(r.error);
-      else {
-        setBranch(r.branch ?? "");
-        setFiles(r.files ?? []);
-        if (r.truncated) setNotice("File list truncated by GitHub (very large repo).");
-      }
-    } catch (e) {
-      setNotice(String(e));
-    }
-    setTreeLoading(false);
-  }
-
   async function toggleAttach(path: string) {
     if (attached[path]) {
       setAttached((a) => {
@@ -194,10 +170,11 @@ export default function ChatWorkspace() {
       });
       return;
     }
-    const [owner, repo] = activeRepo.split("/");
+    if (!project) return;
     try {
-      const q = `owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(path)}&branch=${encodeURIComponent(branch)}`;
-      const r = await fetch(`/api/repos/file?${q}`).then((x) => x.json());
+      const r = await fetch(
+        `/api/projects/${encodeURIComponent(project)}/files?path=${encodeURIComponent(path)}`,
+      ).then((x) => x.json());
       if (r.error) setNotice(r.error);
       else setAttached((a) => ({ ...a, [path]: r.content }));
     } catch (e) {
@@ -257,41 +234,54 @@ export default function ChatWorkspace() {
 
   return (
     <div className="flex min-h-0 flex-1">
-      {/* Sidebar: repos + file tree */}
+      {/*
+        Sidebar: projects, then the selected project's files.
+
+        It used to list GitHub repositories, independently of the project
+        dropdown — two controls that both read as "choose what we're working
+        on", where only the dropdown affected the answer. Opening a repo here
+        felt like picking a project and did nothing. Now it *is* the project
+        picker.
+      */}
       <aside className="flex w-80 flex-none flex-col border-r border-neutral-800">
         <div className="flex items-center justify-between px-3 py-2 text-xs uppercase tracking-wide text-neutral-500">
-          <span>Repositories</span>
-          <button onClick={loadRepos} className="hover:text-neutral-300" title="Refresh">
-            ↻
-          </button>
+          <span>{project ? project : "Projects"}</span>
+          {project && (
+            <button
+              onClick={() => void switchProject("")}
+              className="hover:text-neutral-300"
+              title="Back to projects"
+            >
+              ←
+            </button>
+          )}
         </div>
 
-        {!activeRepo ? (
+        {!project ? (
           <div className="min-h-0 flex-1 overflow-auto">
-            {reposLoading && <div className="px-3 py-2 text-sm text-neutral-500">Loading…</div>}
-            {repos.map((r) => (
+            <p className="px-3 pb-2 text-xs text-neutral-500">
+              Pick a project. The model can read and search it, and the chat is saved there.
+            </p>
+            {projects.map((p) => (
               <button
-                key={r.full_name}
-                onClick={() => openRepo(r.full_name)}
+                key={p.name}
+                onClick={() => void switchProject(p.name)}
                 className="block w-full truncate px-3 py-1.5 text-left text-sm hover:bg-neutral-900"
               >
-                {r.full_name}
-                {r.private && <span className="ml-1 text-[10px] text-neutral-500">private</span>}
+                {p.title || p.name}
               </button>
             ))}
-            {!reposLoading && repos.length === 0 && (
-              <div className="px-3 py-2 text-sm text-neutral-500">No repositories.</div>
+            {projects.length === 0 && (
+              <div className="px-3 py-2 text-sm text-neutral-500">
+                No projects registered. Add one on the Projects page.
+              </div>
             )}
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex items-center gap-2 px-3 py-1.5 text-sm">
-              <button onClick={() => setActiveRepo("")} className="text-neutral-500 hover:text-neutral-300">
-                ←
-              </button>
-              <span className="truncate font-medium">{activeRepo}</span>
-              <span className="ml-auto text-[10px] text-neutral-500">{branch}</span>
-            </div>
+            <p className="px-3 pb-1 text-[10px] text-neutral-600">
+              Attaching is optional — the model can search this project itself.
+            </p>
             <input
               value={fileFilter}
               onChange={(e) => setFileFilter(e.target.value)}
