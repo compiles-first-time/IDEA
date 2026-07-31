@@ -21,6 +21,7 @@ export async function Nav() {
         <span className="mr-2 font-semibold tracking-tight">IDEA</span>
         <NavLink href="/chat" label="Chat" />
         <NavLink href="/projects" label="Projects" />
+        <NavLink href="/kanban" label="Board" />
         <NavLink href="/observatory" label="Observatory" />
         <NavLink href="/settings" label="Settings" />
       </div>
