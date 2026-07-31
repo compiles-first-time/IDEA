@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import { redactUnknown } from "@/lib/redact";
+import { toTimelineEvent, type TimelineEvent } from "@/lib/timeline";
 
 /**
  * The Observatory projection (S-37, FR-12).
@@ -197,6 +198,14 @@ export interface ObservatoryState {
   }>;
   /** How much of the log ran as code rather than inference. */
   executionKinds: Record<string, number>;
+  /**
+   * A readable trace of what happened, newest last (FR-13.1).
+   *
+   * The panels answer "how many"; this answers who/what/where/when/why. Bounded,
+   * because a long-lived project would otherwise stream its whole history on
+   * every update.
+   */
+  timeline: TimelineEvent[];
   agents: { spawned: string[]; retired: string[] };
   deploys: { history: Array<{ at: string | null; status: string; detail: string }> };
   testing: { lastRun: string | null; passed: number; failed: number };
@@ -225,6 +234,7 @@ function emptyState(project: string): ObservatoryState {
     agentEdges: [],
     turns: [],
     executionKinds: {},
+    timeline: [],
     agents: { spawned: [], retired: [] },
     deploys: { history: [] },
     testing: { lastRun: null, passed: 0, failed: 0 },
@@ -258,6 +268,8 @@ const MAX_CLAIMS = 100;
 const MAX_ATTEMPTS = 200;
 /** Per-turn cost rows and agent edges are bounded for the same reason. */
 const MAX_TURNS = 300;
+/** The readable trace is the biggest field; keep the newest slice. */
+const MAX_TIMELINE = 600;
 const MAX_EDGES = 200;
 
 /**
@@ -299,6 +311,15 @@ function note(state: ObservatoryState, kind: string, detail: string, at: string 
 /** Fold one event into the state. Pure and total — a bad record is ignored. */
 export function applyEvent(state: ObservatoryState, event: LoomEvent): void {
   const type = event.event_type;
+
+  // Every event gets a readable row, including types the panels do not fold —
+  // an event nobody summarises is exactly the one you want to see when asking
+  // "what actually happened here".
+  const row = toTimelineEvent(event);
+  if (row) {
+    state.timeline.push(row);
+    if (state.timeline.length > MAX_TIMELINE) state.timeline.shift();
+  }
   const at = str(event.timestamp);
   const sid = str(event.session_id);
 

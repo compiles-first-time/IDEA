@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 
+import { SessionTimeline } from "@/components/session-timeline";
+import type { TimelineEvent } from "@/lib/timeline";
+
 /**
  * The Observatory (S-37, FR-12).
  *
@@ -67,6 +70,7 @@ export interface ObservatoryState {
   agentEdges: Array<{ parent: string; child: string; at: string | null }>;
   turns: Array<{ at: string | null; sessionId: string | null; turnIndex: number; inputTokens: number; outputTokens: number; model: string | null; tools: string[] }>;
   executionKinds: Record<string, number>;
+  timeline: TimelineEvent[];
   agents: { spawned: string[]; retired: string[] };
   deploys: { history: Array<{ at: string | null; status: string; detail: string }> };
   testing: { lastRun: string | null; passed: number; failed: number };
@@ -471,6 +475,8 @@ export function ObservatoryView({ initial }: { initial: ObservatoryState }) {
           </ul>
         </Panel>
       )}
+
+      <SessionTimeline timeline={state.timeline ?? []} />
 
       {/* Traceability: which rule governed which decision (FR-13.4). */}
       <RuleTrace compliance={state.compliance} />

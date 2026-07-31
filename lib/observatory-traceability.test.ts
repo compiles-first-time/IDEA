@@ -37,6 +37,7 @@ function blank(): ObservatoryState {
     agentEdges: [],
     turns: [],
     executionKinds: {},
+    timeline: [],
     agents: { spawned: [], retired: [] },
     deploys: { history: [] },
     testing: { lastRun: null, passed: 0, failed: 0 },
