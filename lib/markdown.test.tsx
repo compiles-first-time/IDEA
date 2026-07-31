@@ -72,8 +72,8 @@ test("an unclosed fence still renders rather than swallowing the answer", () => 
 });
 
 test("bulleted and numbered lists render as lists", () => {
-  assert.match(html("- one\n- two"), /<ul[^>]*>.*<li>one<\/li>/s);
-  assert.match(html("1. first\n2. second"), /<ol[^>]*>.*<li>first<\/li>/s);
+  assert.match(html("- one\n- two"), /<ul[^>]*>[\s\S]*<li>one<\/li>/);
+  assert.match(html("1. first\n2. second"), /<ol[^>]*>[\s\S]*<li>first<\/li>/);
 });
 
 test("a table renders as a table", () => {
@@ -84,7 +84,7 @@ test("a table renders as a table", () => {
 });
 
 test("a blockquote renders as one", () => {
-  assert.match(html("> quoted"), /<blockquote[^>]*>.*quoted/s);
+  assert.match(html("> quoted"), /<blockquote[^>]*>[\s\S]*quoted/);
 });
 
 test("a horizontal rule renders", () => {

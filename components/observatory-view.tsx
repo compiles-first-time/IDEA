@@ -95,7 +95,17 @@ function when(iso: string | null): string {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
 }
 
-function usd(n: number): string {
+/**
+ * Money, or an honest admission that we have none.
+ *
+ * `measured` says whether any cost signal existed at all. Without it a project
+ * whose log contains no token data rendered as **"$0.00"**, which reads as "this
+ * was free" when it means "we never measured". That is the single defect this
+ * dashboard keeps reproducing, and it is worse than showing nothing: a confident
+ * zero stops you looking.
+ */
+function usd(n: number, measured = true): string {
+  if (!measured) return "not measured";
   return n === 0 ? "$0.00" : n < 0.01 ? `$${n.toFixed(5)}` : `$${n.toFixed(2)}`;
 }
 
@@ -423,7 +433,16 @@ export function ObservatoryView({ initial }: { initial: ObservatoryState }) {
           value={String(state.failures.errors.length)}
           tone={state.failures.errors.length > 0 ? "warn" : undefined}
         />
-        <Stat label="Spent" value={usd(state.cost.estimatedUsd)} />
+        {/* Tokens are logged; dollars are not (measured: estimated_usd appears
+            zero times in ~10,015 real events). Cost is derived, so if no tokens
+            were recorded there is nothing to derive from — say so. */}
+        <Stat
+          label="Spent"
+          value={usd(
+            state.cost.estimatedUsd,
+            state.cost.inputTokens > 0 || state.cost.outputTokens > 0,
+          )}
+        />
         <Stat
           label="Tests"
           value={`${state.testing.passed} / ${state.testing.passed + state.testing.failed}`}

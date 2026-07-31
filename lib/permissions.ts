@@ -198,6 +198,20 @@ export interface ScopeContext {
   ideaRoot: string;
   /** Absolute path to the vendored loom-template checkout, if present (E-11.a). */
   loomTemplateRoot?: string;
+  /**
+   * Whether the signed-in user maintains loom-template (E-11.a, amended).
+   *
+   * The rule was "no agent ever writes to loom-template". The owner has narrowed
+   * it: **they** may, through IDEA, because they are the maintainer and it is
+   * their repo. Everyone else still cannot.
+   *
+   * Deliberately a boolean decided upstream rather than a login compared here.
+   * This module answers "is this path in scope"; deciding who is a maintainer is
+   * an identity question, and mixing the two would put an allowlist in the path
+   * checker where nobody would look for it. When it is absent the answer is no —
+   * an unknown caller is not a maintainer (NFR-4).
+   */
+  loomMaintainer?: boolean;
 }
 
 export interface ScopeVerdict {
@@ -225,10 +239,12 @@ export function checkPath(target: string, ctx: ScopeContext): ScopeVerdict {
 
   const abs = isAbsolute(target) ? resolve(target) : resolve(ctx.projectRoot, target);
 
-  if (ctx.loomTemplateRoot && contains(ctx.loomTemplateRoot, abs)) {
+  if (ctx.loomTemplateRoot && contains(ctx.loomTemplateRoot, abs) && !ctx.loomMaintainer) {
     return {
       allowed: false,
-      reason: "loom-template is upstream and shared — never written to (E-11.a)",
+      reason:
+        "loom-template is upstream and shared — only its maintainers may change it (E-11.a). " +
+        "Ask a maintainer, or work in a project seeded from it.",
     };
   }
   if (contains(ctx.ideaRoot, abs) && !contains(ctx.projectRoot, abs)) {

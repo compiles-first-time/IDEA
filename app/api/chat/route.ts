@@ -15,6 +15,7 @@ import { chatTools } from "@/lib/chat-tools";
 import { orientationPrompt, readOrientation } from "@/lib/orientation";
 import { loadProjects } from "@/lib/project-store";
 import { getProject, projectRoot } from "@/lib/projects";
+import { isLoomMaintainer } from "@/lib/maintainers";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -73,7 +74,7 @@ export async function POST(req: Request) {
 
   // A selected project turns the chat from "answer from what was pasted" into
   // "go and look". Orientation is attached; location is searched (S-49).
-  const workspace = body.project ? await workspaceFor(body.project) : null;
+  const workspace = body.project ? await workspaceFor(body.project, session.login) : null;
 
   const system =
     "You are IDEA, a precise, concise coding assistant." +
@@ -194,7 +195,7 @@ const MAX_TOOL_STEPS = 8;
  * without a project is a supported state (it simply is not saved and cannot
  * search), and an unknown name should not swallow the user's message.
  */
-async function workspaceFor(projectName: string) {
+async function workspaceFor(projectName: string, login?: string) {
   try {
     const ideaRoot = process.cwd();
     const project = getProject(await loadProjects(ideaRoot), projectName);
@@ -209,7 +210,10 @@ async function workspaceFor(projectName: string) {
     const scope = {
       projectRoot: root,
       ideaRoot,
-      ...(isTemplate ? { loomTemplateRoot: root } : {}),
+      // E-11.a as amended: the template is protected from everyone EXCEPT the
+      // people who maintain it. Identity is answered in lib/maintainers.ts, not
+      // here — this route only carries the answer across.
+      ...(isTemplate ? { loomTemplateRoot: root, loomMaintainer: isLoomMaintainer(login) } : {}),
     };
     return {
       orientation: await readOrientation(root),
