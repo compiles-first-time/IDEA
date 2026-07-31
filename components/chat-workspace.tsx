@@ -5,6 +5,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 
 import { FileTree } from "@/components/file-tree";
+import { Markdown } from "@/components/markdown";
 import {
   describeDecision,
   reconcileSelection,
@@ -415,11 +416,23 @@ export default function ChatWorkspace() {
           {messages.map((m) => (
             <div key={m.id} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
               <div
-                className={`max-w-[80%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm ${
-                  m.role === "user" ? "bg-blue-600 text-white" : "bg-neutral-900 text-neutral-100"
+                className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                  m.role === "user"
+                    ? "whitespace-pre-wrap bg-blue-600 text-white"
+                    : "bg-neutral-900 text-neutral-100"
                 }`}
               >
-                {m.parts.map((part, i) => (part.type === "text" ? <span key={i}>{part.text}</span> : null))}
+                {/* The users own words render as typed; the models answer is
+                    markdown, which is what it writes. */}
+                {m.role === "user" ? (
+                  m.parts.map((part, i) => (part.type === "text" ? <span key={i}>{part.text}</span> : null))
+                ) : (
+                  <Markdown
+                    text={m.parts
+                      .map((part) => (part.type === "text" ? part.text : ""))
+                      .join("")}
+                  />
+                )}
 
                 {/* Which model answered, and what the router skipped to get
                     there. This was computed and streamed all along; nothing
