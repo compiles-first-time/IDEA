@@ -40,7 +40,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-projects/
+
+# The runtime project workspace at the repo root — NOT app/projects or
+# app/api/projects. Unanchored `projects/` silently ignored those source
+# directories too, so the projects feature never reached the remote.
+/projects/
 
 # User settings written at runtime — the shipped defaults are *.default.json
 config/routing.json
