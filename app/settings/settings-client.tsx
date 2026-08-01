@@ -12,10 +12,12 @@ export function SettingsClient({
   models,
   initialChain,
   initialAllocation,
+  hosted = false,
 }: {
   models: PublicModel[];
   initialChain: ChainEntry[];
   initialAllocation: Allocation | null;
+  hosted?: boolean;
 }) {
   const onSave = useCallback(async (chain: ChainEntry[], allocation: Allocation | null) => {
     const res = await fetch("/api/routing", {
@@ -35,6 +37,7 @@ export function SettingsClient({
       initialAllocation={initialAllocation}
       spend={null}
       onSave={onSave}
+      hosted={hosted}
     />
   );
 }

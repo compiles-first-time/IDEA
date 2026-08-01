@@ -91,3 +91,15 @@ There is no `launch`, no `dashboardUrl`, no per-project server, and no `running`
 state — a project is not a process.
 
 **Precedence, newest first:** `10` → `09` → `08` → `07` → `00`–`06`.
+
+## Update: hosted mode (2026-08-01)
+
+**[12-hosted-mode.md](12-hosted-mode.md) amends `08` for hosted deployments only.**
+
+IDEA can additionally run on Vercel as a gated multi-provider chat console: GitHub
+allowlist unchanged, each user brings their own provider keys (`x-idea-key-*` headers,
+browser-held, never stored server-side — E-15.b), and every machine-bound surface
+(projects, agents, observatory, persistence) refuses mechanically (FR-15.3). The local
+install remains the complete product; `08` still governs it.
+
+**Precedence, newest first:** `12` → `11` → `10` → `09` → `08` → `07` → `00`–`06`.

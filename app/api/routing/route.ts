@@ -5,7 +5,8 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import { auth } from "@/auth";
-import { jsonError, serverError, unauthorized } from "@/lib/api";
+import { hostedUnavailable, jsonError, serverError, unauthorized } from "@/lib/api";
+import { isHosted } from "@/lib/hosted";
 import { chainFor, loadRoutingConfig, unreachableEntries } from "@/lib/fallback";
 import { Allocation, parseAllocationConfig } from "@/lib/ledger";
 import { enabledModels, loadRegistry } from "@/lib/registry";
@@ -52,6 +53,10 @@ const SaveBody = z.object({
 export async function POST(req: Request) {
   const session = await auth();
   if (!session) return unauthorized();
+  // The chain lives in config/ on disk; a shared read-only deployment has no
+  // per-user place to put it yet — refusing beats silently applying one user's
+  // chain to everyone.
+  if (isHosted()) return hostedUnavailable("Saving routing configuration");
 
   let body: z.infer<typeof SaveBody>;
   try {

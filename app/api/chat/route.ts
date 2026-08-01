@@ -2,11 +2,13 @@ import { convertToModelMessages, stepCountIs, streamText, type UIMessage } from 
 
 import { auth } from "@/auth";
 import { jsonError, serverError } from "@/lib/api";
+import { keysFromHeaders, type ProviderKeys } from "@/lib/byok";
 import { ChatRequest, TurnMetadata } from "@/lib/contracts/api";
 import { SpendRecord, type RoutingDecision } from "@/lib/contracts/routing";
 import { ASSUMED_OUTPUT_TOKENS, estimateCostUsd } from "@/lib/cost";
 import { chainFor, loadRoutingConfig, orderFromChain } from "@/lib/fallback";
-import { resolveModel } from "@/lib/providers";
+import { isHosted } from "@/lib/hosted";
+import { hasKeyFor, resolveModel } from "@/lib/providers";
 import { enabledModels, getModel, defaultModelId, loadRegistry } from "@/lib/registry";
 import { route, scoreComplexity, selectModel } from "@/lib/router";
 import type { NewTurn } from "@/lib/conversation";
@@ -40,8 +42,30 @@ export async function POST(req: Request) {
   }
 
   const registry = loadRegistry();
-  const candidates = enabledModels(registry);
-  if (candidates.length === 0) return jsonError("no models are enabled", 500);
+  const hosted = isHosted();
+  // In hosted mode keys are the user's own, carried as headers (E-15.b); a
+  // local install keeps reading the environment and ignores the headers.
+  const keys: ProviderKeys | undefined = hosted ? keysFromHeaders(req.headers) : undefined;
+
+  const allEnabled = enabledModels(registry);
+  if (allEnabled.length === 0) return jsonError("no models are enabled", 500);
+
+  // Route only among models we can actually reach: a provider without a key
+  // must not win the routing decision only to fail mid-stream (BR_02_BE-02
+  // taught this lesson for stale picks; the same applies to keyless providers).
+  // Hosted also drops `local` entries — a server cannot see anyone's 127.0.0.1.
+  const candidates = allEnabled.filter(
+    (m) => (!hosted || m.provider !== "local") && hasKeyFor(m, keys),
+  );
+  if (candidates.length === 0) {
+    return jsonError(
+      hosted
+        ? "No provider API key yet — add your own key in Settings. It stays in your browser."
+        : "No provider API key configured — add one in Settings.",
+      400,
+      "missing_key",
+    );
+  }
 
   const messages = body.messages as UIMessage[];
   const prompt = lastUserText(messages);
@@ -74,7 +98,10 @@ export async function POST(req: Request) {
 
   // A selected project turns the chat from "answer from what was pasted" into
   // "go and look". Orientation is attached; location is searched (S-49).
-  const workspace = body.project ? await workspaceFor(body.project, session.login) : null;
+  // Hosted mode has no projects on disk, so the workspace is structurally null
+  // (E-15.a) — this also guarantees no tool ever runs against the host.
+  const workspace =
+    body.project && !hosted ? await workspaceFor(body.project, session.login) : null;
 
   const system =
     "You are IDEA, a precise, concise coding assistant." +
@@ -85,7 +112,7 @@ export async function POST(req: Request) {
 
   try {
     const result = streamText({
-      model: resolveModel(chosen),
+      model: resolveModel(chosen, keys),
       system,
       messages: await convertToModelMessages(messages),
       tools: workspace?.tools,
@@ -99,7 +126,9 @@ export async function POST(req: Request) {
     // fails or the tab closes mid-reply, what the user said is still recorded.
     // Losing your own message is worse than losing the reply, which can be asked
     // for again.
-    const persist = body.project && body.conversationId
+    // Never in hosted mode: there is no disk to save to, and a turn that
+    // *carried* a user's key headers must not leave any server-side residue.
+    const persist = !hosted && body.project && body.conversationId
       ? { project: body.project, id: body.conversationId }
       : null;
 

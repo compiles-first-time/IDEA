@@ -14,15 +14,18 @@ deterministic cost routing, and the conversation-portability spine.
 ## Read before writing code
 
 - **[`docs/architecture/`](docs/architecture/README.md)** — the design of record.
-  Precedence: **`09` → `08` → `07` → `00`–`06`.**
-  [`09-agent-authority.md`](docs/architecture/09-agent-authority.md) is the newest —
-  agents can run commands and write code, governed by Loom's kernel rather than by a
+  Precedence: **`12` → `11` → `10` → `09` → `08` → `07` → `00`–`06`.**
+  [`12-hosted-mode.md`](docs/architecture/12-hosted-mode.md) is the newest — a Vercel
+  deployment variant: chat only, bring-your-own-keys, everything machine-bound refuses
+  (FR-15). [`09-agent-authority.md`](docs/architecture/09-agent-authority.md) — agents
+  can run commands and write code, governed by Loom's kernel rather than by a
   prohibition list. [`08-local-first.md`](docs/architecture/08-local-first.md) removed
-  the Vercel/companion split. `00`–`06` also contain known errors listed in the README.
+  the Vercel/companion split and still governs the local install. `00`–`06` also
+  contain known errors listed in the README.
 - **[`docs/stories/INDEX.md`](docs/stories/INDEX.md)** — the backlog. Every story traces
   to a numbered requirement.
 
-**If a change doesn't trace to a requirement in `01`, `07`, `08`, or `09`, it's scope creep.**
+**If a change doesn't trace to a requirement in `01`, `07`, `08`, `09`, or `12`, it's scope creep.**
 Write a story or an exception first.
 
 ## Invariants
@@ -48,7 +51,9 @@ functions ship with tests: `npm test`.
 handling all default to the denied/safe state.
 
 **Secrets (NFR-6).** Provider keys via env only — never in client bundles, chat input,
-tool args, or persisted conversations.
+tool args, or persisted conversations. Hosted mode re-scopes the *source* (E-15.b): a
+user's own key rides `x-idea-key-*` headers from their browser, is used for that one
+provider call, and is never stored server-side. The rest of the rule stands everywhere.
 
 ## Agent authority — the axis is reversibility, not capability
 

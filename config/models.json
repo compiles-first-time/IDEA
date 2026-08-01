@@ -40,6 +40,50 @@
       "outputWeight": 50.0,
       "contextWindow": 1000000,
       "enabled": false
+    },
+    {
+      "id": "gpt-5.2",
+      "provider": "openai",
+      "label": "GPT-5.2",
+      "tier": "heavy",
+      "inputWeight": 1.75,
+      "outputWeight": 14.0,
+      "contextWindow": 400000,
+      "enabled": true,
+      "endpoint": "https://api.openai.com/v1"
+    },
+    {
+      "id": "gemini-3.5-flash",
+      "provider": "google",
+      "label": "Gemini 3.5 Flash",
+      "tier": "standard",
+      "inputWeight": 1.5,
+      "outputWeight": 9.0,
+      "contextWindow": 1000000,
+      "enabled": true,
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai"
+    },
+    {
+      "id": "kimi-k2.6",
+      "provider": "moonshot",
+      "label": "Kimi K2.6",
+      "tier": "standard",
+      "inputWeight": 0.95,
+      "outputWeight": 4.0,
+      "contextWindow": 256000,
+      "enabled": true,
+      "endpoint": "https://api.moonshot.ai/v1"
+    },
+    {
+      "id": "qwen3-max",
+      "provider": "dashscope",
+      "label": "Qwen3-Max",
+      "tier": "heavy",
+      "inputWeight": 1.2,
+      "outputWeight": 6.0,
+      "contextWindow": 256000,
+      "enabled": true,
+      "endpoint": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
     }
   ]
 }

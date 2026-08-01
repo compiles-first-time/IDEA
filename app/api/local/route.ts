@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 import { auth } from "@/auth";
-import { jsonError, serverError, unauthorized } from "@/lib/api";
+import { hostedUnavailable, jsonError, serverError, unauthorized } from "@/lib/api";
+import { isHosted } from "@/lib/hosted";
 import {
   HardwareInput,
   classifyAll,
@@ -22,6 +23,9 @@ export const runtime = "nodejs";
 export async function GET() {
   const session = await auth();
   if (!session) return unauthorized();
+  // Scanning a serverless container's home directory would "discover" the
+  // host's filesystem and report it as the user's — meaningless and misleading.
+  if (isHosted()) return hostedUnavailable("Local model discovery");
 
   try {
     const models = await discoverLocalModels();
@@ -54,6 +58,7 @@ const Body = z.object({
 export async function POST(req: Request) {
   const session = await auth();
   if (!session) return unauthorized();
+  if (isHosted()) return hostedUnavailable("Local model classification");
 
   let body: z.infer<typeof Body>;
   try {

@@ -3,7 +3,8 @@ import { resolve } from "node:path";
 import { z } from "zod";
 
 import { auth } from "@/auth";
-import { jsonError, serverError, unauthorized } from "@/lib/api";
+import { hostedUnavailable, jsonError, serverError, unauthorized } from "@/lib/api";
+import { isHosted } from "@/lib/hosted";
 import { runAgent, type ExecuteFn, type StepFn } from "@/lib/agent";
 import { SkillNotFoundError, findSkill } from "@/lib/skills";
 import { executeTool, pathsForCall, unknownTools } from "@/lib/tools";
@@ -12,8 +13,11 @@ import { anthropicStep } from "@/lib/agent-provider";
 import { defaultModelId, getModel, loadRegistry } from "@/lib/registry";
 
 export const runtime = "nodejs";
-/** Agent runs are long by nature; local-first removed the serverless cap. */
-export const maxDuration = 600;
+/**
+ * Agent runs are long by nature. 300 is the serverless ceiling (FR-15);
+ * locally `next start` ignores this value, and hosted mode refuses the route.
+ */
+export const maxDuration = 300;
 
 const Body = z.object({
   projectRoot: z.string().min(1),
@@ -33,6 +37,9 @@ const Body = z.object({
 export async function POST(req: Request, { params }: { params: Promise<{ name: string }> }) {
   const session = await auth();
   if (!session) return unauthorized();
+  // An agent that runs commands needs the user's own machine — refusing here is
+  // also what keeps a client-supplied projectRoot meaningless on a shared host.
+  if (isHosted()) return hostedUnavailable("Running a skill");
 
   const { name } = await params;
   let body: z.infer<typeof Body>;

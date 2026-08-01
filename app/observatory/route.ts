@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { auth } from "@/auth";
+import { isHosted } from "@/lib/hosted";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,6 +48,11 @@ export async function GET(req: Request) {
   const session = await auth();
   if (!session) {
     return Response.redirect(new URL("/login", req.url), 307);
+  }
+  // The weave reads event logs off this machine's disk; a hosted deployment
+  // has none. Chat is where hosted IDEA works, so land there (FR-15.3).
+  if (isHosted()) {
+    return Response.redirect(new URL("/chat", req.url), 307);
   }
 
   try {

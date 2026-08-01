@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { jsonError, unauthorized } from "@/lib/api";
+import { isHosted } from "@/lib/hosted";
 import { KeyInput, keyStatuses, saveKey } from "@/lib/provider-keys";
 
 export const runtime = "nodejs";
@@ -25,6 +26,16 @@ export async function GET() {
 export async function POST(req: Request) {
   const session = await auth();
   if (!session) return unauthorized();
+  // In hosted mode a key never reaches the server to be stored (E-15.b): it
+  // stays in the user's browser and rides chat requests as a header. Accepting
+  // a key here would put one user's key in every user's process env.
+  if (isHosted()) {
+    return jsonError(
+      "Hosted mode never stores keys server-side — your key stays in this browser.",
+      403,
+      "hosted_unavailable",
+    );
+  }
 
   let body: unknown;
   try {

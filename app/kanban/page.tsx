@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { HostedNotice } from "@/components/hosted-notice";
 import { KanbanBoard } from "@/components/kanban-board";
+import { isHosted } from "@/lib/hosted";
 import { loadProjects } from "@/lib/project-store";
 
 export const runtime = "nodejs";
@@ -20,6 +22,7 @@ export default async function KanbanPage({
 }) {
   const session = await auth();
   if (!session) redirect("/login");
+  if (isHosted()) return <HostedNotice feature="The requirements board" />;
 
   const { project } = await searchParams;
   const file = await loadProjects();

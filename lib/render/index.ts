@@ -201,6 +201,9 @@ export function familyForProvider(provider: string): ProviderFamily {
       return "anthropic";
     case "openai":
     case "local":
+    case "google":
+    case "moonshot":
+    case "dashscope":
       return "openai-compatible";
     default:
       return "generic-text";

@@ -9,9 +9,12 @@ Every story traces to a numbered requirement and a component. If a change doesn'
 to one, it's scope creep — write a new story or an exception first.
 
 > **Read [`08-local-first.md`](../architecture/08-local-first.md) first, then
-> [`07-amendments.md`](../architecture/07-amendments.md).** `08` is the newest and wins:
-> IDEA runs on the user's own machine and ships as a one-command package. `07` adds
-> repo-resident conversations and project-per-repo. Both override `00`–`06`.
+> [`07-amendments.md`](../architecture/07-amendments.md).** `08` is the design of record
+> for the local install: IDEA runs on the user's own machine and ships as a one-command
+> package. `07` adds repo-resident conversations and project-per-repo. Both override
+> `00`–`06`. For *hosted* deployments only,
+> [`12-hosted-mode.md`](../architecture/12-hosted-mode.md) amends `08` — chat from
+> anywhere, bring-your-own-keys, everything machine-bound refused.
 
 ---
 
@@ -180,6 +183,14 @@ recorded" until the writer exists.
 | [S-46](S-46-wire-up-what-is-built.md) | Wire up what is already built | Conversations, the conversation picker, and local-model discovery are all built, tested, and **unreachable from the UI** |
 | [S-47](S-47-identity-and-access.md) | Identity and access beyond a GitHub allowlist | Domain SSO, invitations with expiry, account switching |
 | [S-48](S-48-provider-key-discovery.md) | Discover models from a pasted API key | The registry is static; a key that unlocks a new model gets you nothing |
+
+## Phase 3 — hosted mode *(new, 2026-08-01)*
+
+Traces to [`12-hosted-mode.md`](../architecture/12-hosted-mode.md) — FR-15, E-15.a–d.
+
+| ID | Story | Component | Status |
+|---|---|---|---|
+| [S-50](S-50-hosted-mode-vercel.md) | Hosted mode: IDEA on Vercel with bring-your-own-keys | C-40 | **In progress** — code done and build-proven; the Vercel deployment itself remains |
 
 **The pattern worth naming:** S-46 exists because three separate stories were
 closed as done while their feature stayed unreachable. Each passed its own tests.

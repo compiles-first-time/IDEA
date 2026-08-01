@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { jsonError, serverError, unauthorized } from "@/lib/api";
 import { ModelsResponse } from "@/lib/contracts/api";
+import { isHosted } from "@/lib/hosted";
 import { defaultModelId, enabledModels, loadRegistry } from "@/lib/registry";
 
 export const runtime = "nodejs";
@@ -17,8 +18,13 @@ export async function GET() {
 
   try {
     const registry = loadRegistry();
+    // A hosted deployment cannot reach anyone's 127.0.0.1 — a `local` entry
+    // in the picker there would be a button that always fails (E-15.a).
+    const visible = enabledModels(registry).filter(
+      (m) => !isHosted() || m.provider !== "local",
+    );
     const body = ModelsResponse.parse({
-      models: enabledModels(registry).map((m) => ({
+      models: visible.map((m) => ({
         id: m.id,
         provider: m.provider,
         label: m.label,
@@ -28,6 +34,7 @@ export async function GET() {
         contextWindow: m.contextWindow,
       })),
       defaultId: defaultModelId(registry),
+      hosted: isHosted(),
     });
     return Response.json(body);
   } catch (e) {

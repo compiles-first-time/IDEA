@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 
+import { BYOK_PROVIDERS, type ByokProviderId } from "@/lib/byok";
+import { clearStoredKey, getStoredKey, setStoredKey } from "@/lib/byok-client";
+
 interface KeyStatus {
   provider: string;
   label: string;
@@ -17,8 +20,117 @@ interface KeyStatus {
  * exists and its last four characters — enough to tell two keys apart, useless
  * if the screen is shared. Re-populating a form field with a stored key is how
  * keys end up in screenshots and support tickets (NFR-6).
+ *
+ * Two homes for a key, decided by the deployment (FR-15.2):
+ * - local: `.env.local` on the machine, via POST /api/keys — unchanged.
+ * - hosted: this browser's localStorage, never the server. Each chat request
+ *   carries the key as a header; closing the account is deleting the key here.
  */
-export function ProviderKeysPanel() {
+export function ProviderKeysPanel({ hosted = false }: { hosted?: boolean }) {
+  return hosted ? <ByokPanel /> : <EnvKeysPanel />;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Hosted: keys stay in the browser                                           */
+/* ------------------------------------------------------------------------- */
+
+function ByokPanel() {
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  // Last-four hints, read from localStorage after mount (SSR has no storage).
+  const [hints, setHints] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    refreshHints(setHints);
+  }, []);
+
+  function save(provider: ByokProviderId) {
+    const key = (drafts[provider] ?? "").trim();
+    if (!key) return;
+    setStoredKey(provider, key);
+    // Clear immediately — the key should not linger in the DOM.
+    setDrafts((d) => ({ ...d, [provider]: "" }));
+    refreshHints(setHints);
+  }
+
+  function forget(provider: ByokProviderId) {
+    clearStoredKey(provider);
+    refreshHints(setHints);
+  }
+
+  return (
+    <section className="space-y-3 rounded-lg border border-neutral-800 p-4">
+      <div>
+        <h2 className="text-sm font-medium">Your API keys</h2>
+        <p className="mt-1 text-xs text-neutral-500">
+          Stored in <em>this browser</em> only — never on the server. Each message you send
+          carries your key straight to the provider you picked; nothing is billed to anyone
+          else. Clearing a key here removes it completely.
+        </p>
+      </div>
+
+      <ul className="space-y-3">
+        {BYOK_PROVIDERS.map((p) => {
+          const hint = hints[p.id] ?? "";
+          return (
+            <li key={p.id} className="space-y-1">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-sm">{p.label}</span>
+                <span className="text-xs text-neutral-500">
+                  {hint ? (
+                    <span className="text-emerald-400">in this browser · …{hint}</span>
+                  ) : (
+                    <span className="text-amber-400">not set</span>
+                  )}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={drafts[p.id] ?? ""}
+                  onChange={(e) => setDrafts((d) => ({ ...d, [p.id]: e.target.value }))}
+                  placeholder={hint ? "paste a new key to replace" : p.placeholder}
+                  className="flex-1 rounded border border-neutral-800 bg-neutral-900 px-2 py-1 font-mono text-xs outline-none focus:border-neutral-600"
+                />
+                <button
+                  onClick={() => save(p.id)}
+                  disabled={!(drafts[p.id] ?? "").trim()}
+                  className="rounded border border-neutral-700 px-3 py-1 text-xs hover:bg-neutral-800 disabled:opacity-40"
+                >
+                  {hint ? "Replace" : "Save"}
+                </button>
+                {hint && (
+                  <button
+                    onClick={() => forget(p.id)}
+                    className="rounded border border-neutral-800 px-3 py-1 text-xs text-neutral-400 hover:bg-neutral-800"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function refreshHints(set: (h: Record<string, string>) => void): void {
+  const next: Record<string, string> = {};
+  for (const p of BYOK_PROVIDERS) {
+    const key = getStoredKey(p.id);
+    if (key.length >= 4) next[p.id] = key.slice(-4);
+  }
+  set(next);
+}
+
+/* ------------------------------------------------------------------------- */
+/* Local: keys live in .env.local, via the API                                */
+/* ------------------------------------------------------------------------- */
+
+function EnvKeysPanel() {
   const [statuses, setStatuses] = useState<KeyStatus[]>([]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState("");

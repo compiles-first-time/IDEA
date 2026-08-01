@@ -6,6 +6,7 @@ import { DefaultChatTransport } from "ai";
 
 import { FileTree } from "@/components/file-tree";
 import { Markdown } from "@/components/markdown";
+import { byokHeaders } from "@/lib/byok-client";
 import {
   describeDecision,
   reconcileSelection,
@@ -32,7 +33,10 @@ export default function ChatWorkspace() {
   const [mode, setMode] = useState<ChatMode>("auto");
 
   const { messages, setMessages, sendMessage, status, error } = useChat({
-    transport: new DefaultChatTransport({ api: "/api/chat" }),
+    // BYOK headers are resolved per send, so a key pasted in Settings works on
+    // the next message. On a local install they resolve to {} and the server
+    // ignores them either way (E-15.b) — same-origin only, never persisted.
+    transport: new DefaultChatTransport({ api: "/api/chat", headers: () => byokHeaders() }),
   });
   const busy = status === "submitted" || status === "streaming";
 

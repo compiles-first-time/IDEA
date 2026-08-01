@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { HostedNotice } from "@/components/hosted-notice";
+import { isHosted } from "@/lib/hosted";
 import {
   CrossProjectView,
   ObservatoryView,
@@ -26,6 +28,7 @@ export default async function ObservatoryPage({
 }) {
   const session = await auth();
   if (!session) redirect("/login");
+  if (isHosted()) return <HostedNotice feature="The observatory" />;
 
   const { project: name } = await searchParams;
   const file = await loadProjects();

@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { SettingsClient } from "@/app/settings/settings-client";
 import { chainFor, loadRoutingConfig } from "@/lib/fallback";
 import { readGlobalAllocation } from "@/lib/allocation-store";
+import { isHosted } from "@/lib/hosted";
 import { enabledModels, loadRegistry } from "@/lib/registry";
 
 export const runtime = "nodejs";
@@ -27,5 +28,12 @@ export default async function SettingsPage() {
   const chain = chainFor(loadRoutingConfig())?.entries ?? [];
   const allocation = await readGlobalAllocation();
 
-  return <SettingsClient models={models} initialChain={chain} initialAllocation={allocation} />;
+  return (
+    <SettingsClient
+      models={models}
+      initialChain={chain}
+      initialAllocation={allocation}
+      hosted={isHosted()}
+    />
+  );
 }

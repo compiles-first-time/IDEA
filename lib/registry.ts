@@ -15,7 +15,15 @@ import modelsJson from "@/config/models.json";
 export const ModelRecord = z
   .object({
     id: z.string().min(1),
-    provider: z.enum(["anthropic", "openai", "local", "google", "other"]),
+    provider: z.enum([
+      "anthropic",
+      "openai",
+      "local",
+      "google",
+      "moonshot",
+      "dashscope",
+      "other",
+    ]),
     label: z.string().min(1),
     tier: Tier,
     /** USD per 1M input tokens. */
@@ -24,13 +32,21 @@ export const ModelRecord = z
     outputWeight: z.number().min(0),
     contextWindow: z.number().int().positive(),
     enabled: z.boolean().default(true),
-    /** Required for provider === "local"; the user's OpenAI-compatible base URL. */
+    /**
+     * The OpenAI-compatible base URL. Required for every provider that speaks
+     * that dialect — which is everything except Anthropic (native SDK) and
+     * `other` (not yet wired). Without it the model would fail only at request
+     * time, with a worse message.
+     */
     endpoint: z.url().optional(),
   })
-  .refine((m) => m.provider !== "local" || !!m.endpoint, {
-    message: "a local model must declare an endpoint",
-    path: ["endpoint"],
-  });
+  .refine(
+    (m) => m.provider === "anthropic" || m.provider === "other" || !!m.endpoint,
+    {
+      message: "an OpenAI-compatible model must declare an endpoint",
+      path: ["endpoint"],
+    },
+  );
 
 export const Registry = z.object({
   defaultId: z.string().min(1),

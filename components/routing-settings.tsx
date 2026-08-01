@@ -41,12 +41,15 @@ export function RoutingSettings({
   initialAllocation,
   spend,
   onSave,
+  hosted = false,
 }: {
   models: PublicModel[];
   initialChain: ChainEntry[];
   initialAllocation: Allocation | null;
   spend: Spend | null;
   onSave: (chain: ChainEntry[], allocation: Allocation | null) => Promise<void>;
+  /** Hosted deployment (FR-15): keys are the user's own, local models absent. */
+  hosted?: boolean;
 }) {
   const [chain, setChain] = useState<ChainEntry[]>(initialChain);
   const [allocation, setAllocation] = useState<Allocation | null>(initialAllocation);
@@ -100,9 +103,11 @@ export function RoutingSettings({
         </p>
       </header>
 
-      <ProviderKeysPanel />
+      <ProviderKeysPanel hosted={hosted} />
 
-      <LocalModelsPanel />
+      {/* A hosted server cannot see anyone's 127.0.0.1 — offering to probe it
+          from here would probe the visitor's machine and confuse everyone. */}
+      {!hosted && <LocalModelsPanel />}
 
       {/* Fallback chain -------------------------------------------------- */}
       <section className="space-y-3 rounded-lg border border-neutral-800 p-4">

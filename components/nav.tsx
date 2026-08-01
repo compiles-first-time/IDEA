@@ -1,5 +1,6 @@
 import { auth, signOut } from "@/auth";
 import { NavLink } from "@/components/nav-link";
+import { isHosted } from "@/lib/hosted";
 
 /**
  * The app-wide nav.
@@ -20,9 +21,15 @@ export async function Nav() {
       <div className="flex items-center gap-1">
         <span className="mr-2 font-semibold tracking-tight">IDEA</span>
         <NavLink href="/chat" label="Chat" />
-        <NavLink href="/projects" label="Projects" />
-        <NavLink href="/kanban" label="Board" />
-        <NavLink href="/observatory" label="Observatory" />
+        {/* Hosted mode advertises only what works there (FR-15.3) — the
+            local-only pages still explain themselves if reached by URL. */}
+        {!isHosted() && (
+          <>
+            <NavLink href="/projects" label="Projects" />
+            <NavLink href="/kanban" label="Board" />
+            <NavLink href="/observatory" label="Observatory" />
+          </>
+        )}
         <NavLink href="/settings" label="Settings" />
       </div>
       <div className="flex items-center gap-3 text-sm">

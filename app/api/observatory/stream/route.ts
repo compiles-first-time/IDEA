@@ -1,14 +1,19 @@
 import { z } from "zod";
 
 import { auth } from "@/auth";
-import { jsonError, unauthorized } from "@/lib/api";
+import { hostedUnavailable, jsonError, unauthorized } from "@/lib/api";
+import { isHosted } from "@/lib/hosted";
 import { sseFrame, streamProjectState } from "@/lib/observatory-stream";
 import { loadProjects } from "@/lib/project-store";
 import { getProject, projectRoot } from "@/lib/projects";
 
 export const runtime = "nodejs";
-/** A dashboard connection is meant to stay open. */
-export const maxDuration = 3600;
+/**
+ * A dashboard connection is meant to stay open. 300 is the serverless ceiling
+ * (FR-15); locally `next start` ignores this, and hosted mode refuses anyway —
+ * the client reconnects when a proxy closes a long stream either way.
+ */
+export const maxDuration = 300;
 
 const Query = z.object({ project: z.string().min(1) });
 
@@ -25,6 +30,8 @@ const HEARTBEAT_MS = 25_000;
 export async function GET(req: Request) {
   const session = await auth();
   if (!session) return unauthorized();
+  // `fs.watch` over event logs needs the logs to exist on this machine.
+  if (isHosted()) return hostedUnavailable("The live observatory stream");
 
   const parsed = Query.safeParse(Object.fromEntries(new URL(req.url).searchParams));
   if (!parsed.success) return jsonError("project is required", 400);

@@ -10,7 +10,15 @@ import { RoutingDecision, SpendRecord, Tier } from "@/lib/contracts/routing";
 /** A model as exposed to the browser. `endpoint` is deliberately omitted. */
 export const PublicModel = z.object({
   id: z.string(),
-  provider: z.enum(["anthropic", "openai", "local", "google", "other"]),
+  provider: z.enum([
+    "anthropic",
+    "openai",
+    "local",
+    "google",
+    "moonshot",
+    "dashscope",
+    "other",
+  ]),
   label: z.string(),
   tier: Tier,
   inputWeight: z.number(),
@@ -21,6 +29,8 @@ export const PublicModel = z.object({
 export const ModelsResponse = z.object({
   models: z.array(PublicModel),
   defaultId: z.string(),
+  /** True when this deployment is hosted (FR-15) — keys are the user's own. */
+  hosted: z.boolean().default(false),
 });
 
 /**
