@@ -49,7 +49,7 @@
     "typescript": "^5"
   },
   "bin": {
-    "idea": "./bin/idea.mjs"
+    "idea": "bin/idea.mjs"
   },
   "files": [
     "app",
