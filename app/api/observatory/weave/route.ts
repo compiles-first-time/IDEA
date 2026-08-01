@@ -3,7 +3,7 @@ import { serverError, unauthorized } from "@/lib/api";
 import { readRawEvents } from "@/lib/observatory";
 import type { LoomEvent } from "@/lib/observatory";
 import { loadProjects } from "@/lib/project-store";
-import { projectRoot } from "@/lib/projects";
+import { isProvisioned, projectRoot } from "@/lib/projects";
 import { redactUnknown } from "@/lib/redact";
 import { glossaryFor, mapProject } from "@/lib/weave";
 
@@ -32,12 +32,21 @@ export async function GET() {
     const allEvents: LoomEvent[] = [];
 
     for (const p of file.projects) {
+      // Only cloned repos appear on the dashboard (BR_05_BE-05): a registry
+      // entry whose root is missing, unresolvable, or not yet a git checkout
+      // is skipped, not carded. `projectRoot` throws on unresolvable roots.
+      try {
+        if (!isProvisioned(ideaRoot, p)) continue;
+      } catch {
+        continue;
+      }
+
       let events: LoomEvent[] = [];
       try {
         events = await readRawEvents(projectRoot(ideaRoot, p));
       } catch {
-        // A broken root still yields a card with a queued placeholder run
-        // (BR_05_SE-01) rather than sinking the whole handshake.
+        // An unreadable event log still yields a card with a queued
+        // placeholder run (BR_05_SE-01) rather than sinking the handshake.
       }
       allEvents.push(...events);
       projects.push(

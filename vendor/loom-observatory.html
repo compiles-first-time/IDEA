@@ -77,6 +77,17 @@ main{display:grid;grid-template-columns:var(--w-rail,236px) 6px minmax(0,1fr) 6p
 .gutter.v::after{left:2px;right:2px;top:0;bottom:0}
 .gutter.h::after{top:3px;bottom:2px;left:0;right:0}
 .gutter:hover::after,.gutter.drag::after,.gutter:focus-visible::after{background:var(--accent)}
+.gcol{position:absolute;z-index:6;display:flex;align-items:center;justify-content:center;padding:0;
+ background:var(--panel2);border:1px solid var(--line);border-radius:4px;color:var(--muted);
+ font:600 .625rem/1 var(--mono);cursor:pointer}
+.gutter.v .gcol{left:50%;top:50%;transform:translate(-50%,-50%);width:14px;height:38px}
+.gutter.h .gcol{left:50%;top:50%;transform:translate(-50%,-50%);width:38px;height:14px}
+.gcol:hover,.gcol:focus-visible{color:var(--accent);border-color:var(--accent)}
+@media(min-width:1181px){
+ main.colrail .runrail{overflow:hidden;min-width:0;border-right:none}
+ main.colright aside.rail{overflow:hidden;min-width:0}}
+aside.rail.colfeed .feedwrap{height:auto;min-height:0}
+aside.rail.colfeed .feed{display:none}
 @media(max-width:1180px){main{grid-template-columns:minmax(0,1fr) 6px var(--w-right,372px);grid-template-rows:auto 1fr}
   #h1{display:none}
   .runrail{grid-column:1/-1;flex-direction:row;overflow-x:auto;border-bottom:1px solid var(--line);border-right:none}
@@ -117,7 +128,7 @@ main{display:grid;grid-template-columns:var(--w-rail,236px) 6px minmax(0,1fr) 6p
 .railfoot small{display:block;font-family:var(--sans);font-size:.7875rem;color:var(--faint);margin-top:3px}
 
 /* ---------- stage ---------- */
-.stage{display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--line)}
+.stage{display:flex;flex-direction:column;min-width:0;min-height:0;border-right:1px solid var(--line)}
 .stagebar{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .eyebrow{font-size:.7875rem;letter-spacing:.22em;color:var(--muted);text-transform:uppercase}
 .runtitle{font-size:.88125rem;color:var(--text)}
@@ -1985,6 +1996,53 @@ function initPanels(){
  if(wq)mainEl.style.setProperty("--w-right",wq+"px");
  if(hf)railEl.style.setProperty("--h-feed",hf+"%");
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+ /* Collapse: dragging a panel below its snap threshold closes it entirely;
+    the chevron on its gutter (or dragging back out, or double-click reset)
+    reopens it. The last open size stays in the store, so reopening restores
+    it. Thresholds sit below the resize floors, so there is a deliberate
+    pull past the minimum before a panel snaps shut. */
+ const COL={rail:{key:"railcol",on:false},right:{key:"rightcol",on:false},feed:{key:"feedcol",on:false}};
+ const SNAP={rail:120,right:240,feed:10};
+ function setCollapsed(which,on){
+  if(COL[which].on===on)return;
+  COL[which].on=on;
+  if(on)store.set(COL[which].key,1);else store.del(COL[which].key);
+  if(which==="rail"){mainEl.classList.toggle("colrail",on);
+   if(on)mainEl.style.setProperty("--w-rail","0px");
+   else{const w=store.get("wrail",null);
+    if(w)mainEl.style.setProperty("--w-rail",w+"px");else mainEl.style.removeProperty("--w-rail");}}
+  if(which==="right"){mainEl.classList.toggle("colright",on);
+   if(on)mainEl.style.setProperty("--w-right","0px");
+   else{const w=store.get("wright",null);
+    if(w)mainEl.style.setProperty("--w-right",w+"px");else mainEl.style.removeProperty("--w-right");}}
+  if(which==="feed")railEl.classList.toggle("colfeed",on);
+  refreshChevrons();}
+ function chevron(gid,which){
+  const g=document.getElementById(gid);if(!g)return null;
+  const b=document.createElement("button");b.className="gcol";
+  b.addEventListener("pointerdown",e=>e.stopPropagation());
+  b.addEventListener("dblclick",e=>e.stopPropagation());
+  b.addEventListener("click",e=>{e.stopPropagation();setCollapsed(which,!COL[which].on);});
+  g.appendChild(b);return b;}
+ const c1=chevron("h1","rail"),c2=chevron("h2","right"),c3=chevron("h3","feed");
+ /* A collapsing drag sweeps through the resize floor on its way shut, and the
+    ordinary resize path stores every width it passes. Remember each panel's
+    stored size when its drag starts, so a drag that ends collapsed puts the
+    pre-drag size back — reopening then restores the layout the user had. */
+ const preDrag={};
+ [["h1","wrail"],["h2","wright"],["h3","hfeed"]].forEach(([gid,key])=>{
+  const g=document.getElementById(gid);
+  if(g)g.addEventListener("pointerdown",()=>{preDrag[key]=store.get(key,null);});});
+ function keepPreDrag(key){
+  if(preDrag[key]!=null)store.set(key,preDrag[key]);else store.del(key);}
+ function refreshChevrons(){
+  const lab=(b,on,name,glyphs)=>{if(!b)return;b.textContent=glyphs[on?1:0];
+   b.title=(on?"Show":"Hide")+" "+name;b.setAttribute("aria-label",b.title);
+   b.setAttribute("aria-expanded",String(!on));};
+  lab(c1,COL.rail.on,"the run rail",["‹","›"]);
+  lab(c2,COL.right.on,"the inspector rail",["›","‹"]);
+  lab(c3,COL.feed.on,"the event feed",["⌄","⌃"]);}
+ refreshChevrons();
  function wire(id,onMove,onReset,onKey){
   const g=document.getElementById(id);if(!g)return;
   g.addEventListener("pointerdown",e=>{e.preventDefault();g.setPointerCapture(e.pointerId);g.classList.add("drag");
@@ -1993,29 +2051,47 @@ function initPanels(){
   g.addEventListener("dblclick",onReset);
   g.addEventListener("keydown",e=>{if(onKey)onKey(e);});}
  wire("h1",e=>{const r=mainEl.getBoundingClientRect();
-   const w=clamp(Math.round(e.clientX-r.left-3),180,420);
+   const raw=Math.round(e.clientX-r.left-3);
+   if(raw<SNAP.rail){keepPreDrag("wrail");setCollapsed("rail",true);return;}
+   setCollapsed("rail",false);
+   const w=clamp(raw,180,420);
    mainEl.style.setProperty("--w-rail",w+"px");store.set("wrail",w);},
-  ()=>{mainEl.style.removeProperty("--w-rail");store.del("wrail");},
+  ()=>{setCollapsed("rail",false);mainEl.style.removeProperty("--w-rail");store.del("wrail");},
   e=>{if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();
+   if(COL.rail.on){if(e.key==="ArrowRight")setCollapsed("rail",false);return;}
    const cur=parseInt(getComputedStyle(mainEl).getPropertyValue("--w-rail"))||236;
+   if(e.key==="ArrowLeft"&&cur<=180){setCollapsed("rail",true);return;}
    const w=clamp(cur+(e.key==="ArrowRight"?16:-16),180,420);
    mainEl.style.setProperty("--w-rail",w+"px");store.set("wrail",w);}});
  wire("h2",e=>{const r=mainEl.getBoundingClientRect();
-   const w=clamp(Math.round(r.right-e.clientX-3),300,560);
+   const raw=Math.round(r.right-e.clientX-3);
+   if(raw<SNAP.right){keepPreDrag("wright");setCollapsed("right",true);return;}
+   setCollapsed("right",false);
+   const w=clamp(raw,300,560);
    mainEl.style.setProperty("--w-right",w+"px");store.set("wright",w);},
-  ()=>{mainEl.style.removeProperty("--w-right");store.del("wright");},
+  ()=>{setCollapsed("right",false);mainEl.style.removeProperty("--w-right");store.del("wright");},
   e=>{if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();
+   if(COL.right.on){if(e.key==="ArrowLeft")setCollapsed("right",false);return;}
    const cur=parseInt(getComputedStyle(mainEl).getPropertyValue("--w-right"))||372;
+   if(e.key==="ArrowRight"&&cur<=300){setCollapsed("right",true);return;}
    const w=clamp(cur+(e.key==="ArrowLeft"?16:-16),300,560);
    mainEl.style.setProperty("--w-right",w+"px");store.set("wright",w);}});
  wire("h3",e=>{const r=railEl.getBoundingClientRect();
-   const pct=clamp(Math.round((r.bottom-e.clientY)/r.height*100),18,75);
+   const raw=Math.round((r.bottom-e.clientY)/r.height*100);
+   if(raw<SNAP.feed){keepPreDrag("hfeed");setCollapsed("feed",true);return;}
+   setCollapsed("feed",false);
+   const pct=clamp(raw,18,75);
    railEl.style.setProperty("--h-feed",pct+"%");store.set("hfeed",pct);},
-  ()=>{railEl.style.removeProperty("--h-feed");store.del("hfeed");},
+  ()=>{setCollapsed("feed",false);railEl.style.removeProperty("--h-feed");store.del("hfeed");},
   e=>{if(e.key==="ArrowUp"||e.key==="ArrowDown"){e.preventDefault();
+   if(COL.feed.on){if(e.key==="ArrowUp")setCollapsed("feed",false);return;}
    const cur=parseInt(getComputedStyle(railEl).getPropertyValue("--h-feed"))||34;
+   if(e.key==="ArrowDown"&&cur<=18){setCollapsed("feed",true);return;}
    const pct=clamp(cur+(e.key==="ArrowUp"?3:-3),18,75);
    railEl.style.setProperty("--h-feed",pct+"%");store.set("hfeed",pct);}});
+ if(store.get("railcol",null))setCollapsed("rail",true);
+ if(store.get("rightcol",null))setCollapsed("right",true);
+ if(store.get("feedcol",null))setCollapsed("feed",true);
 }
 
 /* ---------------- font size control ---------------- */

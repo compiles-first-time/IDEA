@@ -17,7 +17,7 @@ Observatory: "It has improved UX. Lets make it happen."
 |---|---|
 | **ID** | `BR_05` |
 | **Type** | `BR` |
-| **Usecase** | `/observatory` serves the weave dashboard, showing IDEA's real projects and their real event logs alongside the spec's scripted teaching demo |
+| **Usecase** | `/observatory` serves the weave dashboard, showing only IDEA's real projects (registry entries with a cloned repo) and their real event logs; the scripted teaching demo is removed (I5) |
 | **Expected Input** | The vendored reference HTML + real `memory/event-log/*.jsonl` |
 | **Expected Output** | The weave, auth-gated, with real projects appearing as first-class cards |
 | **Input Data Format** | Loom event JSONL → Rule-22 v2 event schema (spec §4.2) |
@@ -32,7 +32,7 @@ Observatory: "It has improved UX. Lets make it happen."
 | `BR_05_Vendor` | `---` | Vendor the reference HTML + spec verbatim into the repo | `BR_05_Serve` | Spec §0: "port; do not re-author". The 34/35-tested behaviour is the asset |
 | `BR_05_Serve` | `---` | `app/observatory/route.ts` serves the HTML behind IDEA's auth, appending one marked integration script | `BR_05_Adapt` | Doc `10`'s objections were the process and the port, not the artifact; served by IDEA there is no second server and no 4040 |
 | `BR_05_Adapt` | `---` | `lib/weave.ts` maps real Loom events → spec §4.2 events, pure and tested | `BR_05_Handshake` | Determinism-first: the mapping is plain code, and honesty rules apply to every field it cannot know |
-| `BR_05_Handshake` | `---` | The integration script fetches `/api/observatory/weave` and appends real projects to `PROJECTS` (spec §16's registry handshake) | — | The demo stays as the teaching content; real projects arrive beside it, labelled live |
+| `BR_05_Handshake` | `---` | The integration script removes the scripted demo, fetches `/api/observatory/weave`, and merges real projects into `PROJECTS` (spec §16's registry handshake) | — | The operator asked for only real repos on the dashboard; the demo's teaching content is not worth a card that isn't a project |
 
 ## Exceptions
 
@@ -44,7 +44,7 @@ Observatory: "It has improved UX. Lets make it happen."
 | `BR_05_BE-02` | `BE` | Real logs have thousands of events per session | Last N events kept, with a synthetic root event stating exactly how many were truncated | — | Spec backlog #9 knows live volume needs virtualization; silent truncation reads as a short session |
 | `BR_05_BE-03` | `BE` | Real rules (`LR-04`, `ADR-0047`) are absent from the demo glossary | Glossary entries injected from `lib/explain.ts` content, so real rule chips resolve | — | An unknown token is a safe no-op, but a clickable explanation is the product's whole teaching posture |
 | `BR_05_BE-04` | `BE` | Cumulative `session_token_usage` snapshots would over-count | Per-event token **deltas**, non-monotonic drops flagged to zero | — | The 30x over-count already happened once; the weave must not reproduce it |
-| `BR_05_BE-05` | `BE` | The demo's scripted projects could read as real | Demo cards labelled `scripted demo` by the integration script | — | Spec §1.5: captions never lie about scripted vs live |
+| `BR_05_BE-05` | `BE` | Non-repos could appear as project cards (scripted demo entries; registry entries never cloned or with unresolvable roots) | Demo projects removed by the integration script; the weave route skips registry entries that are not provisioned git checkouts | — | Spec §1.5 (captions never lie about scripted vs live) is satisfied vacuously: nothing scripted is shown |
 
 ## Deviations from the spec (recorded per §20, not silent)
 
@@ -54,3 +54,7 @@ Observatory: "It has improved UX. Lets make it happen."
 | I2 | Key vault left demo-scoped; IDEA's `.env.local` keys are authoritative | Spec §7.3 commits to exactly this at live wiring |
 | I3 | Real run = one log session (no `trace_id` in real events yet) | The spec's Run needs a boundary the data does not record; sessions are the honest unit available |
 | I4 | Real events get sparse causal parents (tool_result → its tool_call only) | Inventing a parent chain would draw fictional causality as fact |
+| I5 | The scripted demo projects are removed, not labelled; only cloned repos are served | The operator wants the dashboard to show real repos and nothing else; §1.5's caption rule is satisfied by absence |
+| I6 | Causal connectors default to `all`, not `sel` | The causality arrows should accumulate during playback and persist after it ends; per-event flicker hid the web the spec draws them to show |
+| I7 | One CSS fix inside the vendored HTML: `.stage` gains `min-height:0` | Without it the stage grid row sizes to the SVG's full height and `body{overflow:hidden}` clips the rest — the weave extends past what any scrollbar can reach. Siblings `.runrail`/`.rail` already carried `min-height:0`; measured headless: max scroll was 0 before, full canvas reachable after |
+| I8 | The adjustable panels (run rail, inspector rail, event feed) snap collapsed when dragged past their resize floors (below 120px / 240px / 10%), and each gutter carries a chevron button that toggles the panel open and closed | Requested by the operator. The pre-drag size is remembered, so reopening restores the layout the user had; collapsed state persists across reloads like the sizes always did |
