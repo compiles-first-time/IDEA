@@ -1,13 +1,14 @@
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
 import { DeviceSignIn } from "@/components/device-signin";
-import { isHosted } from "@/lib/hosted";
+import { isHosted, isSiteOnly } from "@/lib/hosted";
 
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ switch?: string }>;
 }) {
+  if (isSiteOnly()) redirect("/");
   const session = await auth();
   const { switch: switching } = await searchParams;
   if (session && !switching) redirect("/chat");

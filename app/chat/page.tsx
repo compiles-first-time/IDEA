@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import ChatWorkspace from "@/components/chat-workspace";
+import { isSiteOnly } from "@/lib/hosted";
 
 export default async function ChatPage() {
+  if (isSiteOnly()) redirect("/");
   const session = await auth();
   if (!session) redirect("/login");
 

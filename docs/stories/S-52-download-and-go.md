@@ -28,6 +28,20 @@ a **stranger's package**: the unscoped npm name has belonged to someone else for
   Settings, not an exit code.
 - **`/get`** on the hosted deployment: the public download page — requirements, the one
   command, what first run looks like.
+- **Escape from node_modules.** Next.js (Turbopack) cannot build an app that lives
+  inside a node_modules directory — which is exactly where `npx` puts it. Found by the
+  cold-start test, twice removed: first the launcher's hardcoded Next path assumed
+  un-hoisted dependencies; then the build itself panicked. The launcher now
+  materializes the app once into `~/.ideallab/idea-<version>`, installs there, and
+  re-runs from that copy — which also moves `.env.local` and the build cache out of
+  npx's disposable cache, and carries settings forward across version upgrades.
+- **One-line installers** (`public/install.ps1`, `public/install.sh`): served by the
+  site itself; check for Node 20+, install it (winget / Homebrew) when missing, then
+  run `npx @ideallab/idea`. The manual path stays documented beside them.
+- **Site-only mode** (`IDEA_SITE_ONLY=1`): the deployment renders as a plain product
+  website — the homepage is the download page; chat, settings, and sign-in redirect
+  home; the proxy passes everything through so no redirect loop can form. Remove the
+  env var to bring the hosted console back.
 
 ## Exceptions
 

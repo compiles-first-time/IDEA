@@ -14,3 +14,13 @@
 export function isHosted(env: Record<string, string | undefined> = process.env): boolean {
   return env.IDEA_HOSTED === "1" || env.VERCEL === "1";
 }
+
+/**
+ * Site-only mode (S-52): the deployment is a plain product website — landing
+ * page and download instructions, no console. Chat, settings, and sign-in all
+ * redirect home. For the phase where the hosted console is not yet meant for
+ * visitors; remove the env var and the console is back.
+ */
+export function isSiteOnly(env: Record<string, string | undefined> = process.env): boolean {
+  return env.IDEA_SITE_ONLY === "1";
+}

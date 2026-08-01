@@ -30,6 +30,12 @@ function hasSessionCookie(request: NextRequest): boolean {
 }
 
 export function proxy(request: NextRequest) {
+  // Site-only mode (S-52): the deployment is a plain website — nothing behind
+  // it needs a login redirect, and "/" must render for everyone. Without this
+  // early exit, "/" → /login → "/" would loop, since the login page also
+  // sends visitors home in this mode.
+  if (process.env.IDEA_SITE_ONLY === "1") return NextResponse.next();
+
   // Presence of a cookie is not proof of a valid session — it is only a cheap
   // signal that a redirect is pointless. Validation stays server-side.
   if (hasSessionCookie(request)) return NextResponse.next();

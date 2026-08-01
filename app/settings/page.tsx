@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { SettingsClient } from "@/app/settings/settings-client";
 import { chainFor, loadRoutingConfig } from "@/lib/fallback";
 import { readGlobalAllocation } from "@/lib/allocation-store";
-import { isHosted } from "@/lib/hosted";
+import { isHosted, isSiteOnly } from "@/lib/hosted";
 import { readHostedSettings } from "@/lib/hosted-settings";
 import { supabaseConfig } from "@/lib/supabase-store";
 import { enabledModels, loadRegistry } from "@/lib/registry";
@@ -13,6 +13,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
+  if (isSiteOnly()) redirect("/");
   const session = await auth();
   if (!session) redirect("/login");
 

@@ -12,9 +12,11 @@
 
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { appendFileSync, existsSync, readFileSync } from "node:fs";
+import { appendFileSync, cpSync, existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { createRequire } from "node:module";
 import { createServer } from "node:net";
-import { dirname, join } from "node:path";
+import { homedir } from "node:os";
+import { basename, dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -55,6 +57,89 @@ ${c.yellow("--host")} makes IDEA reachable by other machines on your network. It
 default on purpose: IDEA can read your files and run commands. Only use it on a
 network you trust.
 `);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Escape node_modules (S-52)                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * `npx` runs this file from inside a node_modules directory — and Next.js
+ * cannot build an app that lives there (Turbopack refuses to treat its files
+ * as application modules; found by the cold-start test). So when we detect
+ * that layout, the app is materialized once into a stable home directory,
+ * dependencies installed there, and this launcher re-runs from that copy.
+ *
+ * A welcome side effect: `.env.local` (the owner's secret, allowlist, keys)
+ * and the built `.next` live in the user's home instead of npx's disposable
+ * cache, so they survive cache evictions and `npx` upgrades.
+ */
+async function materializeIfInsideNodeModules(argv) {
+  if (!ROOT.split(sep).includes("node_modules")) return null;
+
+  const version = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).version;
+  const homeBase = join(homedir(), ".ideallab");
+  const appHome = join(homeBase, `idea-${version}`);
+
+  if (!existsSync(join(appHome, "package.json"))) {
+    console.log(c.dim(`Setting up IDEA in ${appHome} — once per version.\n`));
+    cpSync(ROOT, appHome, {
+      recursive: true,
+      filter: (src) => {
+        const name = basename(src);
+        return name !== "node_modules" && name !== ".next" && name !== ".env.local";
+      },
+    });
+
+    // Carry the owner's config forward from the previous version, so an
+    // upgrade never signs anyone out or loses their keys.
+    const previous = existsSync(homeBase)
+      ? readdirSync(homeBase)
+          .filter((d) => d.startsWith("idea-") && d !== `idea-${version}`)
+          .sort()
+          .at(-1)
+      : undefined;
+    if (previous && existsSync(join(homeBase, previous, ".env.local"))) {
+      cpSync(join(homeBase, previous, ".env.local"), join(appHome, ".env.local"));
+      console.log(c.dim(`Kept your settings from ${previous}.\n`));
+    }
+
+    console.log(c.dim("Installing dependencies — a minute or two, once.\n"));
+    const code = await runNpmInstall(appHome);
+    if (code !== 0) {
+      rmSync(appHome, { recursive: true, force: true });
+      console.error(c.red("\nDependency install failed — see the output above."));
+      process.exit(code ?? 1);
+    }
+  }
+
+  // Hand over to the copy outside node_modules; it takes it from here.
+  const child = spawn(process.execPath, [join(appHome, "bin", "idea.mjs"), ...argv], {
+    cwd: appHome,
+    stdio: "inherit",
+  });
+  child.on("exit", (code) => process.exit(code ?? 0));
+  return child;
+}
+
+/** Run `npm install --omit=dev` in a directory, wherever npm actually is. */
+function runNpmInstall(cwd) {
+  const args = ["install", "--omit=dev", "--no-audit", "--no-fund"];
+  // Under npx/npm, npm_execpath points at npm's (or npx's) own JS entry —
+  // the one binary guaranteed present. Fall back to PATH lookup otherwise.
+  let execpath = process.env.npm_execpath;
+  if (execpath && basename(execpath).startsWith("npx")) {
+    execpath = join(dirname(execpath), "npm-cli.js");
+  }
+  const child =
+    execpath && existsSync(execpath)
+      ? spawn(process.execPath, [execpath, ...args], { cwd, stdio: "inherit" })
+      : spawn(process.platform === "win32" ? "npm.cmd" : "npm", args, {
+          cwd,
+          stdio: "inherit",
+          shell: process.platform === "win32",
+        });
+  return new Promise((resolve) => child.on("exit", resolve));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -156,9 +241,20 @@ function openBrowser(url) {
  * without a shell. Calling the underlying JS sidesteps both and behaves
  * identically on Windows, macOS, and Linux.
  */
-const NEXT_CLI = join(ROOT, "node_modules", "next", "dist", "bin", "next");
+function nextCli() {
+  // Resolve through Node's own algorithm, starting from this file: a packed
+  // install hoists dependencies to the PARENT node_modules (npx does too), a
+  // git checkout keeps them in ROOT/node_modules. A hardcoded path only ever
+  // found the second — the cold-start test caught it (S-52).
+  try {
+    return createRequire(import.meta.url).resolve("next/dist/bin/next");
+  } catch {
+    return join(ROOT, "node_modules", "next", "dist", "bin", "next");
+  }
+}
 
 function run(args, env) {
+  const NEXT_CLI = nextCli();
   if (!existsSync(NEXT_CLI)) {
     throw new Error(`Could not find Next.js at ${NEXT_CLI} — try running: npm install`);
   }
@@ -172,6 +268,9 @@ function run(args, env) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) return usage();
+
+  // Inside node_modules (npx layout): hand over to a copy that isn't (S-52).
+  if (await materializeIfInsideNodeModules(process.argv.slice(2))) return;
 
   if (!Number.isInteger(args.port) || args.port < 1 || args.port > 65535) {
     console.error(c.red(`Invalid port: ${args.port}`));
@@ -189,7 +288,9 @@ async function main() {
   const url = `http://localhost:${port}`;
   const env = { PORT: String(port), AUTH_URL: process.env.AUTH_URL ?? url, HOSTNAME: args.host };
 
-  if (!args.dev && !existsSync(join(ROOT, ".next"))) {
+  // BUILD_ID exists only when a build FINISHED — a crashed build leaves a
+  // partial .next that must not be mistaken for one (S-52 cold-start lesson).
+  if (!args.dev && !existsSync(join(ROOT, ".next", "BUILD_ID"))) {
     console.log(c.dim("First run — building. This happens once.\n"));
     const build = run(["build"], env);
     const code = await new Promise((r) => build.on("exit", r));

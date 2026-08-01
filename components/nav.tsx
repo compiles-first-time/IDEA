@@ -1,6 +1,6 @@
 import { auth, signOut } from "@/auth";
 import { NavLink } from "@/components/nav-link";
-import { isHosted } from "@/lib/hosted";
+import { isHosted, isSiteOnly } from "@/lib/hosted";
 
 /**
  * The app-wide nav.
@@ -13,6 +13,8 @@ import { isHosted } from "@/lib/hosted";
  * bare page and no route is advertised to someone who cannot open it.
  */
 export async function Nav() {
+  // A plain website has no console to navigate (S-52).
+  if (isSiteOnly()) return null;
   const session = await auth();
   if (!session) return null;
 
