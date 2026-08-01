@@ -31,6 +31,10 @@ export default function ChatWorkspace() {
   const [models, setModels] = useState<PickableModel[]>([]);
   const [modelId, setModelId] = useState("");
   const [mode, setMode] = useState<ChatMode>("auto");
+  // Hosted deployment (FR-15): no projects; chats save per-account when the
+  // deployment has a store (S-51), and plainly say "not saved" when it hasn't.
+  const [hostedMode, setHostedMode] = useState(false);
+  const [hostedSaving, setHostedSaving] = useState(false);
 
   const { messages, setMessages, sendMessage, status, error } = useChat({
     // BYOK headers are resolved per send, so a key pasted in Settings works on
@@ -67,6 +71,12 @@ export default function ChatWorkspace() {
         const r = await fetch("/api/models").then((x) => x.json());
         const list: PickableModel[] = r.models ?? [];
         setModels(list);
+        setHostedMode(!!r.hosted);
+        setHostedSaving(!!r.hosted && !!r.hostedPersistence);
+        if (r.hosted && r.hostedPersistence) {
+          const c = await fetch("/api/hosted/conversations").then((x) => x.json());
+          if (c.conversations) setConvos(c.conversations);
+        }
         // A stored selection that no longer exists would fail every turn
         // (BR_02_BE-02); reconcile against what this build can actually reach.
         const stored = localStorage.getItem("idea.modelId") ?? "";
@@ -141,9 +151,11 @@ export default function ChatWorkspace() {
       return;
     }
     try {
-      const r = await fetch(
-        `/api/projects/${encodeURIComponent(project)}/conversations/${encodeURIComponent(id)}`,
-      ).then((x) => x.json());
+      // Same response shape from both stores, so one restore path serves both.
+      const endpoint = hostedSaving
+        ? `/api/hosted/conversations/${encodeURIComponent(id)}`
+        : `/api/projects/${encodeURIComponent(project)}/conversations/${encodeURIComponent(id)}`;
+      const r = await fetch(endpoint).then((x) => x.json());
 
       if (r.error) {
         setNotice(r.error);
@@ -197,9 +209,14 @@ export default function ChatWorkspace() {
     // project you merely clicked into does not accumulate empty conversations.
     // The title is the opening message — a sidebar of "New chat" is unusable.
     let id = convoId;
-    if (project && !id) {
+    const startEndpoint = project
+      ? `/api/projects/${encodeURIComponent(project)}/conversations`
+      : hostedSaving
+        ? "/api/hosted/conversations"
+        : null;
+    if (startEndpoint && !id) {
       try {
-        const r = await fetch(`/api/projects/${encodeURIComponent(project)}/conversations`, {
+        const r = await fetch(startEndpoint, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ title: text.slice(0, 200) }),
@@ -250,7 +267,7 @@ export default function ChatWorkspace() {
       */}
       <aside className="flex w-80 flex-none flex-col border-r border-neutral-800">
         <div className="flex items-center justify-between px-3 py-2 text-xs uppercase tracking-wide text-neutral-500">
-          <span>{project ? project : "Projects"}</span>
+          <span>{hostedMode ? "Conversations" : project ? project : "Projects"}</span>
           {project && (
             <button
               onClick={() => void switchProject("")}
@@ -262,7 +279,37 @@ export default function ChatWorkspace() {
           )}
         </div>
 
-        {!project ? (
+        {hostedMode ? (
+          <div className="min-h-0 flex-1 overflow-auto">
+            <p className="px-3 pb-2 text-xs text-neutral-500">
+              {hostedSaving
+                ? "Your conversations, saved to your account."
+                : "This deployment doesn't save chats — each conversation lives only in this tab."}
+            </p>
+            {hostedSaving && (
+              <>
+                <button
+                  onClick={() => void openConversation("")}
+                  className="block w-full truncate px-3 py-1.5 text-left text-sm text-neutral-400 hover:bg-neutral-900"
+                >
+                  + New conversation
+                </button>
+                {convos.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => void openConversation(c.id)}
+                    className={
+                      "block w-full truncate px-3 py-1.5 text-left text-sm hover:bg-neutral-900" +
+                      (c.id === convoId ? " bg-neutral-900" : "")
+                    }
+                  >
+                    {c.title}
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+        ) : !project ? (
           <div className="min-h-0 flex-1 overflow-auto">
             <p className="px-3 pb-2 text-xs text-neutral-500">
               Pick a project. The model can read and search it, and the chat is saved there.
@@ -321,20 +368,22 @@ export default function ChatWorkspace() {
             to put it, so the bar says so rather than letting you find out by
             losing a chat. */}
         <div className="flex items-center gap-2 border-b border-neutral-800 px-3 py-1.5 text-xs">
-          <select
-            value={project}
-            onChange={(e) => void switchProject(e.target.value)}
-            className="rounded border border-neutral-800 bg-neutral-900 px-2 py-1 text-xs outline-none focus:border-neutral-600"
-          >
-            <option value="">No project — this chat won&apos;t be saved</option>
-            {projects.map((p) => (
-              <option key={p.name} value={p.name}>
-                {p.title || p.name}
-              </option>
-            ))}
-          </select>
+          {!hostedMode && (
+            <select
+              value={project}
+              onChange={(e) => void switchProject(e.target.value)}
+              className="rounded border border-neutral-800 bg-neutral-900 px-2 py-1 text-xs outline-none focus:border-neutral-600"
+            >
+              <option value="">No project — this chat won&apos;t be saved</option>
+              {projects.map((p) => (
+                <option key={p.name} value={p.name}>
+                  {p.title || p.name}
+                </option>
+              ))}
+            </select>
+          )}
 
-          {project && (
+          {(project || hostedSaving) && (
             <>
               <select
                 value={convoId}
@@ -351,7 +400,7 @@ export default function ChatWorkspace() {
               <button
                 onClick={() => void openConversation("")}
                 className="shrink-0 rounded border border-neutral-700 px-2 py-1 hover:bg-neutral-800"
-                title="Start a new conversation in this project"
+                title={project ? "Start a new conversation in this project" : "Start a new conversation"}
               >
                 + New
               </button>
@@ -359,7 +408,13 @@ export default function ChatWorkspace() {
           )}
 
           <span className="ml-auto shrink-0 text-neutral-600">
-            {project ? (convoId ? "saving to project" : "starts on first message") : "not saved"}
+            {project || hostedSaving
+              ? convoId
+                ? project
+                  ? "saving to project"
+                  : "saving to your account"
+                : "starts on first message"
+              : "not saved"}
           </span>
         </div>
 

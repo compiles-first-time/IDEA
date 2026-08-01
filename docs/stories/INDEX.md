@@ -191,6 +191,7 @@ Traces to [`12-hosted-mode.md`](../architecture/12-hosted-mode.md) — FR-15, E-
 | ID | Story | Component | Status |
 |---|---|---|---|
 | [S-50](S-50-hosted-mode-vercel.md) | Hosted mode: IDEA on Vercel with bring-your-own-keys | C-40 | **In progress** — code done and build-proven; the Vercel deployment itself remains |
+| [S-51](S-51-supabase-hosted-store.md) | Supabase store: saved hosted chats + per-user settings | C-41 | **In progress** — code done and tested; needs `supabase/schema.sql` run once + two env vars on the deployment |
 
 **The pattern worth naming:** S-46 exists because three separate stories were
 closed as done while their feature stayed unreachable. Each passed its own tests.

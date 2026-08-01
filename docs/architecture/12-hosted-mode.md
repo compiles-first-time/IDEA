@@ -91,20 +91,26 @@ agents do not run in hosted mode at all (E-15.a).
   not in a file, not in a database. They exist in the user's browser and in the headers
   of requests that user sends. The deployment cannot leak a key store because there is
   no key store; closing your account is clearing a localStorage entry.
-- **Exception E-15.c** No per-user server-side settings in hosted mode. The routing
-  chain and allocation render read-only from bundled defaults; saving refuses. Honoring
-  per-user settings needs a database and per-user namespacing, and hosted mode has not
-  earned that yet.
-- **Exception E-15.d** Hosted conversations are unsaved for now. The GitHub-API
-  conversation store (`lib/github-store.ts`) is already serverless-safe and is the
-  designed follow-up; it is not wired in this pass because shipping BYOK with *zero*
-  server-side write paths keeps the custody story auditable at a glance.
+- **Exception E-15.c** *(amended 2026-08-01 by S-51)* Per-user server-side settings
+  exist **only when the deployment wires a Supabase store** (`SUPABASE_URL` +
+  `SUPABASE_SECRET_KEY`): each login gets its own routing chain and allocation row.
+  Without the store, the original refusal stands — the chain renders read-only and
+  saving refuses, because a settings write with no per-user namespace would apply one
+  user's chain to everyone.
+- **Exception E-15.d** *(amended 2026-08-01 by S-51)* Hosted conversations save
+  **per login into the Supabase store when one is wired**, through the same
+  `RepoFileStore` seam as the local and GitHub backends — redaction, optimistic
+  concurrency, and retries inherited, not reimplemented. Without the store, chats are
+  unsaved, said plainly in the UI. Provider keys remain outside every stored turn
+  (E-15.b); the requester's key values are additionally passed to redaction as extra
+  secrets, so even a key pasted *into the chat text* never lands in a stored turn.
 
 ## 3. Amended component map
 
 | # | Component | Status |
 |---|---|---|
 | C-40 | Hosted gate & BYOK — `lib/hosted.ts`, `lib/byok.ts`, `lib/byok-client.ts`, refusals in routes/pages/nav | **New.** Tested in `lib/byok.test.ts` |
+| C-41 | Supabase hosted store (S-51) — `lib/supabase-store.ts` as a third `RepoFileStore` backend, `lib/hosted-conversations.ts`, `lib/hosted-settings.ts`, `supabase/schema.sql` | **New.** Tested in `lib/supabase-store.test.ts` over a faked PostgREST wire |
 | C-2 (providers) | `lib/providers.ts` | **Amended.** `resolveModel(model, keys?)` — per-request key seam; Gemini/Kimi/Qwen/OpenAI via the compatible adapter |
 | C-24 | Local companion | Still deleted (`08`); hosted mode does **not** revive it |
 
@@ -117,6 +123,7 @@ Set in the hosting platform's env (never committed):
 | `AUTH_SECRET` | fresh secret for the deployment — not the one in your local `.env.local` |
 | `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | a **second** GitHub OAuth App whose callback is `https://<host>/api/auth/callback/github` |
 | `ALLOWED_LOGINS` | comma-separated GitHub usernames of the invited friends (fail-closed when empty) |
+| `SUPABASE_URL` / `SUPABASE_SECRET_KEY` | *(optional, S-51)* the hosted store — saved chats and per-user settings. Run `supabase/schema.sql` once in the project's SQL editor. Absent, hosted IDEA still works with unsaved chats and read-only routing |
 | provider keys | **normally none** (E-15.b). Any env key you do set becomes a deployment-paid fallback |
 
 Serverless function duration is capped at 300s repo-wide (`maxDuration`) so the deploy

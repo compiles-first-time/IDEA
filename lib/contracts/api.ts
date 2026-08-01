@@ -31,6 +31,8 @@ export const ModelsResponse = z.object({
   defaultId: z.string(),
   /** True when this deployment is hosted (FR-15) — keys are the user's own. */
   hosted: z.boolean().default(false),
+  /** True when a hosted deployment saves chats per user (S-51). */
+  hostedPersistence: z.boolean().default(false),
 });
 
 /**

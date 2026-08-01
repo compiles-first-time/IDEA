@@ -5,6 +5,8 @@ import { SettingsClient } from "@/app/settings/settings-client";
 import { chainFor, loadRoutingConfig } from "@/lib/fallback";
 import { readGlobalAllocation } from "@/lib/allocation-store";
 import { isHosted } from "@/lib/hosted";
+import { readHostedSettings } from "@/lib/hosted-settings";
+import { supabaseConfig } from "@/lib/supabase-store";
 import { enabledModels, loadRegistry } from "@/lib/registry";
 
 export const runtime = "nodejs";
@@ -25,15 +27,22 @@ export default async function SettingsPage() {
     outputWeight: m.outputWeight,
     contextWindow: m.contextWindow,
   }));
-  const chain = chainFor(loadRoutingConfig())?.entries ?? [];
-  const allocation = await readGlobalAllocation();
+  // Hosted with a store: this user's own settings row (S-51). Hosted without
+  // one: empty read-only defaults. Local: the config files, as ever.
+  const hosted = isHosted();
+  const cfg = hosted ? supabaseConfig() : null;
+  const hostedSettings = cfg && session.login ? await readHostedSettings(cfg, session.login) : null;
+  const chain = hosted
+    ? (hostedSettings?.entries ?? [])
+    : (chainFor(loadRoutingConfig())?.entries ?? []);
+  const allocation = hosted ? (hostedSettings?.allocation ?? null) : await readGlobalAllocation();
 
   return (
     <SettingsClient
       models={models}
       initialChain={chain}
       initialAllocation={allocation}
-      hosted={isHosted()}
+      hosted={hosted}
     />
   );
 }

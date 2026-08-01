@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { jsonError, serverError, unauthorized } from "@/lib/api";
 import { ModelsResponse } from "@/lib/contracts/api";
 import { isHosted } from "@/lib/hosted";
+import { hostedPersistenceAvailable } from "@/lib/hosted-conversations";
 import { defaultModelId, enabledModels, loadRegistry } from "@/lib/registry";
 
 export const runtime = "nodejs";
@@ -35,6 +36,7 @@ export async function GET() {
       })),
       defaultId: defaultModelId(registry),
       hosted: isHosted(),
+      hostedPersistence: hostedPersistenceAvailable(),
     });
     return Response.json(body);
   } catch (e) {

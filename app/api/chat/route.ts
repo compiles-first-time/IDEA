@@ -12,6 +12,9 @@ import { hasKeyFor, resolveModel } from "@/lib/providers";
 import { enabledModels, getModel, defaultModelId, loadRegistry } from "@/lib/registry";
 import { route, scoreComplexity, selectModel } from "@/lib/router";
 import type { NewTurn } from "@/lib/conversation";
+import { appendForLogin, hostedPersistenceAvailable } from "@/lib/hosted-conversations";
+import { chainFromSettings, readHostedSettings } from "@/lib/hosted-settings";
+import { supabaseConfig } from "@/lib/supabase-store";
 import { appendForProject } from "@/lib/project-conversations";
 import { chatTools } from "@/lib/chat-tools";
 import { orientationPrompt, readOrientation } from "@/lib/orientation";
@@ -71,8 +74,13 @@ export async function POST(req: Request) {
   const prompt = lastUserText(messages);
 
   // The user's chain is the ordering function in auto mode (FR-4.7); cost
-  // ordering applies only where no chain is configured.
-  const chain = chainFor(loadRoutingConfig());
+  // ordering applies only where no chain is configured. Hosted, the chain is
+  // per-login from the Supabase store (S-51) — one user's ordering must never
+  // become everyone's, and a store hiccup degrades to cost ordering rather
+  // than failing the turn.
+  const chain = hosted
+    ? await hostedChainFor(session.login)
+    : chainFor(loadRoutingConfig());
   const order = chain ? orderFromChain(chain) : undefined;
 
   let decision: RoutingDecision;
@@ -126,11 +134,21 @@ export async function POST(req: Request) {
     // fails or the tab closes mid-reply, what the user said is still recorded.
     // Losing your own message is worse than losing the reply, which can be asked
     // for again.
-    // Never in hosted mode: there is no disk to save to, and a turn that
-    // *carried* a user's key headers must not leave any server-side residue.
-    const persist = !hosted && body.project && body.conversationId
-      ? { project: body.project, id: body.conversationId }
-      : null;
+    // Local turns save into the project's repo; hosted turns save into the
+    // signed-in user's namespace in the Supabase store when one is wired
+    // (S-51) — and not at all when it isn't (E-15.d's original state). The
+    // user's BYOK values ride along as extra redaction secrets, so a key
+    // pasted into the chat itself can never land in a stored turn (E-15.b).
+    const persist: PersistTarget | null = !body.conversationId
+      ? null
+      : hosted
+        ? hostedPersistenceAvailable() && session.login
+          ? { kind: "hosted", login: session.login, id: body.conversationId }
+          : null
+        : body.project
+          ? { kind: "local", project: body.project, id: body.conversationId }
+          : null;
+    const extraSecrets = keys ? Object.values(keys) : [];
 
     if (persist) {
       await savePersistFailure(persist, {
@@ -139,7 +157,7 @@ export async function POST(req: Request) {
           { type: "text", text: prompt },
           ...body.contextFiles.map((f) => ({ type: "repo_context" as const, ...f })),
         ],
-      });
+      }, extraSecrets);
     }
 
     return result.toUIMessageStreamResponse({
@@ -150,6 +168,7 @@ export async function POST(req: Request) {
         await savePersistFailure(
           persist,
           { role: "assistant", content: [{ type: "text", text }], modelId: chosen.id },
+          extraSecrets,
         );
       },
       messageMetadata: ({ part }) => {
@@ -253,6 +272,26 @@ async function workspaceFor(projectName: string, login?: string) {
   }
 }
 
+type PersistTarget =
+  | { kind: "local"; project: string; id: string }
+  | { kind: "hosted"; login: string; id: string };
+
+/**
+ * The signed-in user's fallback chain from the Supabase store, or undefined —
+ * which means cost ordering, the same default as an unconfigured local
+ * install. A store failure also reads as "no chain": routing preference is
+ * not worth failing a chat turn over.
+ */
+async function hostedChainFor(login: string | undefined) {
+  const cfg = supabaseConfig();
+  if (!cfg || !login) return undefined;
+  try {
+    return chainFromSettings(await readHostedSettings(cfg, login));
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Save a turn, and never take the chat down over it.
  *
@@ -262,14 +301,17 @@ async function workspaceFor(projectName: string, login?: string) {
  * user-facing surface is tracked in S-46 rather than faked here.
  */
 async function savePersistFailure(
-  target: { project: string; id: string },
+  target: PersistTarget,
   turn: NewTurn,
+  extraSecrets: readonly string[] = [],
 ): Promise<void> {
+  const where = target.kind === "local" ? target.project : `@${target.login}`;
   try {
-    await appendForProject(target.project, target.id, turn);
+    if (target.kind === "local") await appendForProject(target.project, target.id, turn);
+    else await appendForLogin(target.login, target.id, turn, extraSecrets);
   } catch (e) {
     console.error(
-      `[chat] the turn was NOT saved to ${target.project}/${target.id}:`,
+      `[chat] the turn was NOT saved to ${where}/${target.id}:`,
       e instanceof Error ? e.message : e,
     );
   }
