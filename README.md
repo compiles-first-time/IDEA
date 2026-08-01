@@ -17,21 +17,23 @@ model later.
 ## Run it
 
 ```bash
-npx idea
+npx @ideallab/idea
 ```
 
-Your browser opens. No install step, no platform-specific build — Windows, macOS, and
-Linux from one codebase.
+Your browser opens. No install step, no configuration files, no platform-specific
+build — Windows, macOS, and Linux from one codebase. Needs Node.js 20+.
 
-First run builds once (about a minute), then starts instantly.
+First run builds once (a few minutes), then starts instantly. Sign in with a GitHub
+device code (no OAuth app to create — S-52), and the **first account to sign in becomes
+that install's owner**. Then paste a provider API key in Settings and chat.
 
 ### Options
 
 ```bash
-npx idea --port 5000      # different port (default 4300)
-npx idea --no-open        # don't open a browser
-npx idea --dev            # development mode
-npx idea --host 0.0.0.0   # expose to your network — see below
+npx @ideallab/idea --port 5000      # different port (default 4300)
+npx @ideallab/idea --no-open        # don't open a browser
+npx @ideallab/idea --dev            # development mode
+npx @ideallab/idea --host 0.0.0.0   # expose to your network — see below
 ```
 
 > **`--host` is off by default on purpose.** IDEA can read your files and run commands.
@@ -39,18 +41,21 @@ npx idea --host 0.0.0.0   # expose to your network — see below
 
 ## Setup
 
-IDEA needs five settings in `.env.local`. Just run `npx idea` — it tells you exactly
-which are missing, how to get each one, and the precise OAuth callback URL for your port.
+There is none required — the launcher generates its own session secret, sign-in uses a
+GitHub device code, and provider keys are pasted in Settings after sign-in. Everything
+lands in `.env.local`, which you can also set by hand:
 
 | Setting | What it is |
 |---|---|
-| `AUTH_SECRET` | Session secret — generate with `npx auth secret` |
-| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | A GitHub OAuth app (Settings → Developer settings) |
-| `ANTHROPIC_API_KEY` | From [console.anthropic.com](https://console.anthropic.com/) |
-| `ALLOWED_LOGINS` | GitHub usernames allowed to sign in, comma-separated |
+| `AUTH_SECRET` | Session secret — *generated automatically on first run* |
+| `ALLOWED_LOGINS` | GitHub usernames allowed to sign in, comma-separated — *claimed by the first sign-in when empty* |
+| `ANTHROPIC_API_KEY` etc. | Provider keys — or paste them in Settings |
+| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | *Optional* — your own GitHub OAuth app; with a secret set, sign-in uses the classic web redirect instead of a device code |
 | `IDEA_CHAT_MODEL` | *Optional* — override the default model |
 
-> `ALLOWED_LOGINS` **fails closed**: if it's empty, nobody can sign in — including you.
+> Once `ALLOWED_LOGINS` has a value it **fails closed**: only listed accounts sign in.
+> The first-run claim exists because a fresh install binds to 127.0.0.1 — whoever
+> completes the device code is sitting at this machine.
 
 ## What it does
 

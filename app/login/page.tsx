@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
+import { DeviceSignIn } from "@/components/device-signin";
+import { isHosted } from "@/lib/hosted";
 
 export default async function LoginPage({
   searchParams,
@@ -9,6 +11,12 @@ export default async function LoginPage({
   const session = await auth();
   const { switch: switching } = await searchParams;
   if (session && !switching) redirect("/chat");
+
+  // Which door? Hosted has a real OAuth callback — the web flow. A local
+  // install that configured its own OAuth app keeps the web flow too. Every
+  // other local install (i.e. a fresh download) signs in by device code,
+  // which needs no setup at all (S-52).
+  const webFlow = isHosted() || !!process.env.AUTH_GITHUB_SECRET;
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-8 p-8">
@@ -42,23 +50,33 @@ export default async function LoginPage({
         </div>
       )}
 
-      <form
-        action={async () => {
-          "use server";
-          await signIn("github", { redirectTo: "/chat" });
-        }}
-      >
-        <button
-          type="submit"
-          className="rounded-lg bg-white px-5 py-2.5 font-medium text-black transition-colors hover:bg-neutral-200"
+      {webFlow ? (
+        <form
+          action={async () => {
+            "use server";
+            await signIn("github", { redirectTo: "/chat" });
+          }}
         >
-          Sign in with GitHub
-        </button>
-      </form>
+          <button
+            type="submit"
+            className="rounded-lg bg-white px-5 py-2.5 font-medium text-black transition-colors hover:bg-neutral-200"
+          >
+            Sign in with GitHub
+          </button>
+        </form>
+      ) : (
+        <DeviceSignIn />
+      )}
       <p className="max-w-sm text-center text-xs text-neutral-500">
-        Access is limited to allow-listed GitHub accounts. If you can&apos;t get in, your login
-        isn&apos;t on the allowlist.
+        {webFlow
+          ? "Access is limited to allow-listed GitHub accounts. If you can't get in, your login isn't on the allowlist."
+          : "On a fresh install, the first sign-in becomes the owner. After that, access is limited to allow-listed GitHub accounts."}
       </p>
+      {isHosted() && (
+        <a href="/get" className="text-xs text-neutral-500 underline underline-offset-4 hover:text-neutral-300">
+          Want the full platform? Run IDEA on your own machine →
+        </a>
+      )}
     </main>
   );
 }

@@ -1,7 +1,19 @@
 {
-  "name": "idea",
-  "version": "0.1.0",
-  "private": true,
+  "name": "@ideallab/idea",
+  "version": "0.2.0",
+  "description": "Provider-agnostic multi-LLM chat and agent console that runs on your machine.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/compiles-first-time/IDEA.git"
+  },
+  "homepage": "https://github.com/compiles-first-time/IDEA#readme",
+  "bugs": {
+    "url": "https://github.com/compiles-first-time/IDEA/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -43,18 +55,23 @@
     "app",
     "bin",
     "components",
-    "config",
+    "config/models.json",
+    "config/routing.default.json",
     "docs/architecture",
     "lib",
     "public",
+    "supabase",
     "types",
+    "vendor",
     "auth.ts",
+    "eslint.config.mjs",
     "next.config.ts",
     "postcss.config.mjs",
-    "tsconfig.json"
+    "proxy.ts",
+    "tsconfig.json",
+    ".env.example"
   ],
   "engines": {
     "node": ">=20"
-  },
-  "description": "Provider-agnostic multi-LLM chat and agent console that runs on your machine."
+  }
 }

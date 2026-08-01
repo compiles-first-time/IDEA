@@ -192,6 +192,7 @@ Traces to [`12-hosted-mode.md`](../architecture/12-hosted-mode.md) — FR-15, E-
 |---|---|---|---|
 | [S-50](S-50-hosted-mode-vercel.md) | Hosted mode: IDEA on Vercel with bring-your-own-keys | C-40 | **In progress** — code done and build-proven; the Vercel deployment itself remains |
 | [S-51](S-51-supabase-hosted-store.md) | Supabase store: saved hosted chats + per-user settings | C-41 | **In progress** — code done and tested; needs `supabase/schema.sql` run once + two env vars on the deployment |
+| [S-52](S-52-download-and-go.md) | Download and go: `npx @ideallab/idea`, device-code sign-in, zero-setup first run | C-37, C-42 | **In progress** — code done and tested; needs "Enable Device Flow" ticked + first `npm publish` |
 
 **The pattern worth naming:** S-46 exists because three separate stories were
 closed as done while their feature stayed unreachable. Each passed its own tests.

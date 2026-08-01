@@ -16,8 +16,12 @@ export function HostedNotice({ feature }: { feature: string }) {
         needs IDEA running on a computer with your projects on it.
       </p>
       <p className="text-sm text-neutral-500">
-        Run <code className="rounded bg-neutral-900 px-1.5 py-0.5">npx idea</code> locally to use
-        everything.
+        Run <code className="rounded bg-neutral-900 px-1.5 py-0.5">npx @ideallab/idea</code> on
+        your computer to use everything —{" "}
+        <a href="/get" className="underline underline-offset-4 hover:text-neutral-300">
+          setup takes one command
+        </a>
+        .
       </p>
     </div>
   );
