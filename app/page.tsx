@@ -8,16 +8,16 @@ export default async function Home() {
   // the download page, and nothing asks anyone to sign in.
   if (isSiteOnly()) {
     return (
-      <main className="mx-auto w-full max-w-2xl flex-1 space-y-10 overflow-auto p-8">
+      <div className="mx-auto w-full max-w-4xl space-y-8 p-8">
         <div>
           <h1 className="text-4xl font-bold tracking-tight">IDEA</h1>
-          <p className="mt-3 text-neutral-400">
+          <p className="mt-3 max-w-2xl text-neutral-400">
             A multi-model chat and agent console that runs on your own computer — your repos,
             your keys, agents that write code, and an observatory of everything they did.
           </p>
         </div>
         <GetIdea />
-      </main>
+      </div>
     );
   }
 

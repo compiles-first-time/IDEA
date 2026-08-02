@@ -9,18 +9,18 @@
  */
 export function GetIdea() {
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <section className="space-y-4">
         <h2 className="text-lg font-medium">Install with one command</h2>
         <p className="text-sm text-neutral-400">
           Checks for Node.js, installs it if missing, then starts IDEA and opens your browser.
         </p>
-        <div className="space-y-3">
+        <div className="grid gap-3 lg:grid-cols-2">
           <div>
             <p className="mb-1 text-xs font-medium uppercase tracking-wide text-neutral-500">
               Windows — PowerShell
             </p>
-            <pre className="overflow-x-auto rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-3 font-mono text-sm">
+            <pre className="whitespace-pre-wrap break-all rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-3 font-mono text-sm">
               irm https://idea-ideallab.vercel.app/install.ps1 | iex
             </pre>
           </div>
@@ -28,7 +28,7 @@ export function GetIdea() {
             <p className="mb-1 text-xs font-medium uppercase tracking-wide text-neutral-500">
               macOS / Linux — Terminal
             </p>
-            <pre className="overflow-x-auto rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-3 font-mono text-sm">
+            <pre className="whitespace-pre-wrap break-all rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-3 font-mono text-sm">
               curl -fsSL https://idea-ideallab.vercel.app/install.sh | bash
             </pre>
           </div>
@@ -37,7 +37,7 @@ export function GetIdea() {
 
       <section className="space-y-4">
         <h2 className="text-lg font-medium">Or step by step</h2>
-        <ol className="space-y-5 text-sm">
+        <ol className="grid gap-5 text-sm lg:grid-cols-2">
           <li className="space-y-1">
             <p className="font-medium text-neutral-200">
               1 · Install Node.js <span className="text-neutral-500">(version 20 or newer)</span>
