@@ -22,5 +22,8 @@ export function isHosted(env: Record<string, string | undefined> = process.env):
  * visitors; remove the env var and the console is back.
  */
 export function isSiteOnly(env: Record<string, string | undefined> = process.env): boolean {
-  return env.IDEA_SITE_ONLY === "1";
+  // Tolerant on purpose: "1", "true", or "yes" — a switch this consequential
+  // must not silently no-op over the spelling of truth.
+  const value = env.IDEA_SITE_ONLY?.trim().toLowerCase();
+  return value === "1" || value === "true" || value === "yes";
 }
